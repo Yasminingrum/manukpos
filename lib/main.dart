@@ -7,7 +7,6 @@ import 'services/database_service.dart';
 import 'services/auth_service.dart';
 import 'services/api_service.dart';
 import 'services/sync_service.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   // Ensure Flutter bindings are initialized
