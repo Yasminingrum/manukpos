@@ -1,4 +1,3 @@
-// Register expense module in the application
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
@@ -17,7 +16,6 @@ class ExpenseModule {
         databaseService: context.read<DatabaseService>(),
       ),
       dispose: (_, service) {
-        // Any cleanup if needed
       },
     );
   }
@@ -32,9 +30,7 @@ class ExpenseModule {
   
   // Initialize expense module in database
   static Future<void> initializeDatabaseTables(DatabaseService databaseService) async {
-    // This method should be called during app initialization
-    // to ensure the expense-related tables are created in the database
-    
+
     final db = await databaseService.database;
     
     // Check if expenses table exists
@@ -98,11 +94,11 @@ class ExpenseModule {
         leading: const Icon(Icons.bar_chart),
         title: const Text('Expense Reports'),
         onTap: () {
-          Navigator.pop(context); // Close drawer
+          Navigator.pop(context); 
           Navigator.pushNamed(context, '/reports/expenses');
         },
       ),
-      // Add more menu items as needed
+      //
     ];
   }
   

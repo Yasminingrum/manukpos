@@ -33,7 +33,7 @@ void main() async {
   final databaseService = DatabaseService();
   // Initialize database - method call removed as we'll need to implement this in DatabaseService class
   
-  final apiService = ApiService(baseUrl: 'https://api.manuk-pos.com/v1');
+  final apiService = ApiService(baseUrl: 'https://documenter.getpostman.com/view/37267696/2sB2ca8L6X');
   final authService = AuthService(
     databaseService: databaseService,
     apiService: apiService,

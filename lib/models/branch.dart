@@ -62,8 +62,8 @@ class Branch {
       address: map['address'],
       phone: map['phone'],
       email: map['email'],
-      isMainBranch: map['is_main_branch'] == 1, // Convert integer to boolean
-      isActive: map['is_active'] == 1, // Convert integer to boolean
+      isMainBranch: map['is_main_branch'] == 1,
+      isActive: map['is_active'] == 1, 
       createdAt: map['created_at'],
       updatedAt: map['updated_at'],
     );
@@ -81,8 +81,8 @@ class Branch {
       'address': address,
       'phone': phone,
       'email': email,
-      'is_main_branch': isMainBranch ? 1 : 0, // Convert boolean to integer
-      'is_active': isActive ? 1 : 0, // Convert boolean to integer
+      'is_main_branch': isMainBranch ? 1 : 0, 
+      'is_active': isActive ? 1 : 0, 
       'created_at': createdAt,
       'updated_at': updatedAt,
     };

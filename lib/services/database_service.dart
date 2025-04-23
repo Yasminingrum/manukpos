@@ -360,9 +360,7 @@ class DatabaseService {
     
     // Implement migration logic for different versions
     if (oldVersion < 2) {
-      // Example: Add new columns for version 2
-      // await db.execute('ALTER TABLE users ADD COLUMN new_column TEXT');
-      
+
       // Check if business_profile table exists
       var tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='business_profile'");
       if (tables.isEmpty) {

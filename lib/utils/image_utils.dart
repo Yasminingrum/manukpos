@@ -1,6 +1,6 @@
 // lib/utils/image_utils.dart
 import 'dart:io';
-import 'dart:convert'; // Ditambahkan untuk base64Encode dan base64Decode
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
@@ -117,11 +117,7 @@ class ImageUtils {
       backgroundColor.green.toInt(), 
       backgroundColor.blue.toInt()
     ));
-    
-    // Untuk menambahkan teks ke gambar, kita perlu menggunakan metode lain
-    // karena package 'image' tidak memiliki dukungan langsung untuk menggambar teks
-    // Alternatif: Bisa menggunakan Flutter CustomPaint dan dikonversi menjadi gambar
-    
+        
     // Encode the image to PNG
     final pngBytes = img.encodePng(image);
     

@@ -104,7 +104,6 @@ class AppRouter {
       case pos:
         return MaterialPageRoute(builder: (_) => const PosScreen());
       
-      // PurchasingScreen belum diimplementasikan
       case purchasing:
         return _errorRoute();
       
@@ -148,7 +147,6 @@ class AppRouter {
       case stockOpname:
         return MaterialPageRoute(builder: (_) => const StockOpnameScreen());
         
-      // InventoryMovementScreen belum diimplementasikan
       case inventoryMovements:
         return _errorRoute();
       

@@ -89,22 +89,18 @@ class Generator {
   Generator(this.paperSize, this.profile);
 
   List<int> text(String text, {PosStyles styles = const PosStyles()}) {
-    // Implementasi sederhana untuk contoh
     return []; // Seharusnya mengembalikan byte untuk teks
   }
 
   List<int> row(List<PosColumn> columns) {
-    // Implementasi sederhana untuk contoh
     return []; // Seharusnya mengembalikan byte untuk baris
   }
 
   List<int> hr({String ch = '-', int? linesAfter}) {
-    // Implementasi sederhana untuk contoh
     return []; // Seharusnya mengembalikan byte untuk garis horizontal
   }
 
   List<int> cut() {
-    // Implementasi sederhana untuk contoh
     return []; // Seharusnya mengembalikan byte untuk memotong kertas
   }
 }
@@ -144,7 +140,7 @@ class PrintUtils {
         final printer = PrinterBluetooth(
           name: device.name ?? 'Unknown',
           address: device.address,
-          type: PrinterBluetoothManager.connectedDevice, // Menggunakan versi lowerCamelCase
+          type: PrinterBluetoothManager.connectedDevice,
         );
         devices.add(printer);
       }

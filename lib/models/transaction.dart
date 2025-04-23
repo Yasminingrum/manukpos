@@ -73,7 +73,7 @@ class Transaction {
     this.createdAt,
     this.updatedAt,
     this.syncStatus = 'pending',
-    this.type = 'sale', // Default value for type
+    this.type = 'sale',
     
     // Additional fields
     this.customerName,

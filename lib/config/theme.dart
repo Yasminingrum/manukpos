@@ -224,6 +224,5 @@ class AppTheme {
       onError: Colors.black,
       brightness: Brightness.dark,
     ),
-    // Other theme settings adapted for dark mode would go here
   );
 }

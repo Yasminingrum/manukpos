@@ -110,7 +110,6 @@ class AuthService extends ChangeNotifier {
         notifyListeners();
         return _currentUser!;
       } catch (e) {
-        // If online login fails, try offline login
         logger.w('Online login failed, trying offline login: $e');
       }
       
@@ -127,9 +126,7 @@ class AuthService extends ChangeNotifier {
       }
       
       final user = User.fromMap(users.first);
-      
-      // Simple password comparison for offline mode
-      // In a real app, use proper password hashing/verification
+
       if (user.passwordHash != password) {
         throw Exception('Invalid password');
       }
@@ -286,12 +283,10 @@ class AuthService extends ChangeNotifier {
         throw Exception('User not logged in');
       }
       
-      // In a real app, use proper password hashing/verification
       if (_currentUser!.passwordHash != currentPassword) {
         throw Exception('Current password is incorrect');
       }
       
-      // Try online update first
       try {
         await apiService.post(
           '/auth/change-password',
@@ -335,11 +330,9 @@ class AuthService extends ChangeNotifier {
   bool hasPermission(String permission) {
     if (_currentUser == null) return false;
     
-    // Simplified permission check based on roles
-    // In a real app, implement more sophisticated permission system
     switch (_currentUser!.role) {
       case 'admin':
-        return true; // Admin has all permissions
+        return true;
       case 'manajer':
         // Manager can't access certain admin functions
         return permission != 'user_management' && 

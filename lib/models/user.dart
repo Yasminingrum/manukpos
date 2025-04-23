@@ -4,7 +4,7 @@ import 'dart:convert';
 class User {
   final int? id;
   final String username;
-  final String? password; // For storing password during user creation/update
+  final String? password;
   final String name;
   final String? email;
   final String? phone;

@@ -286,7 +286,6 @@ class ExpenseService {
   // Delete an expense
   Future<bool> deleteExpense(int id, {String? token}) async {
     try {
-      // Try to delete in API first
       try {
         await apiService.delete(
           '/expenses/$id',
@@ -456,7 +455,6 @@ class ExpenseService {
   // Upload expense attachment
   Future<String> uploadExpenseAttachment(int expenseId, String filePath, {String? token}) async {
     try {
-      // This needs to be implemented using ApiService's file upload functionality
       final file = File(filePath);
       
       final response = await apiService.uploadFile(

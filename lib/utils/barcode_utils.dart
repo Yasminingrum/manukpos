@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:mobile_scanner/mobile_scanner.dart' hide Barcode; // Mengganti barcode_scan2
+import 'package:mobile_scanner/mobile_scanner.dart' hide Barcode;
 
 /// Utility class for barcode operations
 class BarcodeUtils {
@@ -16,7 +16,6 @@ class BarcodeUtils {
       String? scannedValue;
       
       // Perlu implementasi UI untuk scanner
-      // Berikut hanya contoh logika yang perlu diimplementasikan dalam widget sebenarnya
       controller.barcodes.listen((barcodeCapture) {
         if (barcodeCapture.barcodes.isNotEmpty && barcodeCapture.barcodes.first.displayValue != null) {
           scannedValue = barcodeCapture.barcodes.first.displayValue;
@@ -24,8 +23,6 @@ class BarcodeUtils {
         }
       });
       
-      // Dalam implementasi aktual, nilai akan dikembalikan setelah scan berhasil
-      // Di sini kita menggunakan nilai placeholder
       return scannedValue;
     } on PlatformException catch (e) {
       if (e.code == 'CameraAccessDenied') {
@@ -220,7 +217,7 @@ class BarcodePainter extends CustomPainter {
     // Draw data bars (simplified)
     for (int i = 0; i < data.length; i++) {
       int charCode = data.codeUnitAt(i);
-      bool drawBar = charCode % 2 == 0; // Simple pattern based on character code
+      bool drawBar = charCode % 2 == 0;
       
       if (drawBar) {
         canvas.drawRect(

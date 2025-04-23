@@ -316,8 +316,6 @@ class AppDrawer extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              // TODO: Implement logout logic with your auth service
-              // AuthService().signOut().then((_) {
               Navigator.of(ctx).pop();
               Navigator.of(context).pushReplacementNamed('/login');
               // });

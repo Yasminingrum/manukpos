@@ -1,6 +1,6 @@
 // lib/utils/file_utils.dart
 import 'dart:io';
-import 'dart:math'; // Import for log and pow functions
+import 'dart:math';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:archive/archive.dart';

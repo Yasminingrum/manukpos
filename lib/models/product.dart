@@ -6,7 +6,7 @@ class Product {
   final String name;
   final String? description;
   final int categoryId;
-  final String category; // Added category field (instead of categoryName)
+  final String category;
   final double buyingPrice;
   final double sellingPrice;
   final double? discountPrice;
@@ -122,7 +122,7 @@ class Product {
       name: json['name'],
       description: json['description'],
       categoryId: json['category_id'],
-      category: json['category_name'] ?? 'Uncategorized', // Get category name from response
+      category: json['category_name'] ?? 'Uncategorized',
       buyingPrice: json['buying_price'].toDouble(),
       sellingPrice: json['selling_price'].toDouble(),
       discountPrice: json['discount_price']?.toDouble(),
