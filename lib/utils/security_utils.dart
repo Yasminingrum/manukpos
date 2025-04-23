@@ -1,11 +1,10 @@
 // lib/utils/security_utils.dart
 import 'dart:convert';
-// Import untuk Uint8List
-import 'dart:math'; // Import untuk Random
+import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter/foundation.dart'; // Import untuk debugPrint
+import 'package:flutter/foundation.dart';
 
 /// Utility class for security operations
 class SecurityUtils {
@@ -82,7 +81,8 @@ class SecurityUtils {
   static Future<String> _getEncryptionKey() async {
     String? key = await _secureStorage.read(key: _encryptionKey);
     
-    if (key == null) {
+    if (key == null || key.isEmpty) {
+      // Generate a new key if none exists
       key = _generateRandomKey();
       await _secureStorage.write(key: _encryptionKey, value: key);
     }

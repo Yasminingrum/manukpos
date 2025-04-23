@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../models/business.dart';
 import '../../services/database_service.dart';
 import '../../widgets/custom_text_field.dart';
-// Removed unused import: '../../utils/validators.dart'
 
 class BusinessProfileScreen extends StatefulWidget {
   const BusinessProfileScreen({super.key});

@@ -1,7 +1,7 @@
 // stock_opname.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../models/product.dart';
 import '../../models/stock_opname.dart';
 import '../../services/database_service.dart';
@@ -342,46 +342,68 @@ class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProvid
     }
   }
 
-  Future<void> _scanBarcode() async {
-    if (_currentOpname == null) return;
+// Fixed scanner implementation for stock_opname.dart
+// Replace the existing _scanBarcode and _processBarcodeResult methods with these:
 
-    try {
-      String barcodeScanRes = await FlutterBarcodeScanner.scanBarcode(
-        '#ff6666',
-        'Cancel',
-        true,
-        ScanMode.BARCODE,
+Future<void> _scanBarcode() async {
+  try {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Scan Barcode'),
+          ),
+          body: MobileScanner(
+            onDetect: (capture) {
+              final List<Barcode> barcodes = capture.barcodes;
+              if (barcodes.isNotEmpty) {
+                final String? barcode = barcodes.first.rawValue;
+                if (barcode != null) {
+                  Navigator.of(context).pop();
+                  _processBarcodeResult(barcode);
+                }
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  } catch (e) {
+    // Remove kDebugMode reference
+    print('Error scanning barcode: $e');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error scanning barcode'),
+          backgroundColor: Colors.red, // Replace AppTheme.errorColor with Colors.red
+        ),
       );
-
-      if (barcodeScanRes != '-1') { // -1 means scanning was canceled
-        // Find product by barcode - using query instead of getProductByBarcode
-        final productList = await _databaseService.query(
-          'products',
-          where: 'barcode = ?',
-          whereArgs: [barcodeScanRes],
-          limit: 1,
-        );
-        
-        if (productList.isNotEmpty) {
-          final productMap = productList.first;
-          final productId = productMap['id'];
-          
-          // Find this product in our opname items
-          final index = _opnameItems.indexWhere((item) => item.productId == productId);
-          if (index >= 0) {
-            // Show dialog to input physical stock
-            await _showCountDialog(_opnameItems[index]);
-          } else {
-            _showErrorSnackBar('Product not found in current inventory');
-          }
-        } else {
-          _showErrorSnackBar('Barcode not found: $barcodeScanRes');
-        }
-      }
-    } catch (e) {
-      _showErrorSnackBar('Error scanning barcode: $e');
     }
   }
+}
+
+void _processBarcodeResult(String barcode) {
+  // Search for product with matching SKU since we don't have a barcode field
+  final matchingItems = _opnameItems.where(
+    (item) => item.productSku == barcode
+  ).toList();
+  
+  if (matchingItems.isNotEmpty) {
+    // If found, show the count dialog for the first matching item
+    _showCountDialog(matchingItems.first);
+  } else {
+    // No matching product found
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Product with this barcode was not found'),
+          backgroundColor: Colors.red, // Replace AppTheme.errorColor with Colors.red
+        ),
+      );
+    }
+  }
+}
 
   Future<void> _showCountDialog(StockOpnameItem item) async {
     final TextEditingController controller = TextEditingController(

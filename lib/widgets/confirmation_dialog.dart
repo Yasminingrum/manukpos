@@ -9,13 +9,13 @@ class ConfirmationDialog extends StatelessWidget {
   final Color confirmColor;
 
   const ConfirmationDialog({
-    Key? key,
+    super.key,
     required this.title,
     required this.content,
     this.confirmText = 'Confirm',
     this.cancelText = 'Cancel',
     this.confirmColor = Colors.blue,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-// Using mobile_scanner instead of flutter_barcode_scanner
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../config/theme.dart';
 import '../../config/constants.dart';
