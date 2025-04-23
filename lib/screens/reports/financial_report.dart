@@ -97,25 +97,27 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
         totalExpenses += expense.amount;
       }
       
-      setState(() {
-        _expenses = expenses;
-        _paymentMethods = paymentMethods;
-        _cashFlowData = cashFlowData;
-        _financialSummary = {
-          'totalRevenue': totalRevenue,
-          'totalExpenses': totalExpenses,
-          'totalProfit': totalProfit,
-          'totalTax': totalTax,
-          'netIncome': totalRevenue - totalExpenses,
-          'profitMargin': totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
-        };
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
       if (mounted) {
+        setState(() {
+          _expenses = expenses;
+          _paymentMethods = paymentMethods;
+          _cashFlowData = cashFlowData;
+          _financialSummary = {
+            'totalRevenue': totalRevenue,
+            'totalExpenses': totalExpenses,
+            'totalProfit': totalProfit,
+            'totalTax': totalTax,
+            'netIncome': totalRevenue - totalExpenses,
+            'profitMargin': totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
+          };
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading financial data: ${e.toString()}')),
         );
@@ -140,10 +142,44 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
       );
       
       // Convert maps to Transaction objects
-      return transactions.map((map) => Transaction.fromMap(map)).toList();
+      List<Transaction> result = [];
+      for (var map in transactions) {
+        // Get transaction items for each transaction
+        final items = await _getTransactionItems(map['id'] as int);
+        map['items'] = items;
+        
+        try {
+          result.add(Transaction.fromMap(map));
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error creating Transaction from map: $e');
+            print('Problematic map: $map');
+          }
+          // Continue with next item if one fails
+          continue;
+        }
+      }
+      
+      return result;
     } catch (e) {
       if (kDebugMode) {
         print('Error getting transactions: $e');
+      }
+      return [];
+    }
+  }
+
+  // Helper method to get transaction items
+  Future<List<Map<String, dynamic>>> _getTransactionItems(int transactionId) async {
+    try {
+      return await _databaseService.query(
+        'transaction_items',
+        where: 'transaction_id = ?',
+        whereArgs: [transactionId],
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting transaction items: $e');
       }
       return [];
     }
@@ -166,7 +202,21 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
       );
       
       // Convert maps to Expense objects
-      return expenses.map((map) => Expense.fromMap(map)).toList();
+      List<Expense> result = [];
+      for (var map in expenses) {
+        try {
+          result.add(Expense.fromMap(map));
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error creating Expense from map: $e');
+            print('Problematic map: $map');
+          }
+          // Continue with next item if one fails
+          continue;
+        }
+      }
+      
+      return result;
     } catch (e) {
       if (kDebugMode) {
         print('Error getting expenses: $e');
@@ -184,7 +234,8 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
       final formattedStartDate = DateFormat('yyyy-MM-dd').format(startDate);
       final formattedEndDate = DateFormat('yyyy-MM-dd').format(endDate.add(const Duration(days: 1)));
       
-      final List<Map<String,dynamic>> result = await _databaseService.rawQuery('''
+      final db = await _databaseService.database;
+      final List<Map<String,dynamic>> result = await db.rawQuery('''
         SELECT 
           payment_method,
           COUNT(*) as count,
@@ -213,8 +264,10 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
       final formattedStartDate = DateFormat('yyyy-MM-dd').format(startDate);
       final formattedEndDate = DateFormat('yyyy-MM-dd').format(endDate.add(const Duration(days: 1)));
       
+      final db = await _databaseService.database;
+      
       // Get daily income from transactions
-      final List<Map<String, dynamic>> incomeData = await _databaseService.rawQuery('''
+      final List<Map<String, dynamic>> incomeData = await db.rawQuery('''
         SELECT 
           date(transaction_date) as date,
           SUM(grand_total) as income,
@@ -226,7 +279,7 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
       ''', [formattedStartDate, formattedEndDate]);
       
       // Get daily expenses
-      final List<Map<String, dynamic>> expenseData = await _databaseService.rawQuery('''
+      final List<Map<String, dynamic>> expenseData = await db.rawQuery('''
         SELECT 
           date(expense_date) as date,
           SUM(amount) as expense
@@ -242,9 +295,15 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
       // Initialize with income data
       for (var row in incomeData) {
         final date = row['date'] as String;
+        // Convert numeric values to double
+        double income = 0.0;
+        if (row['income'] != null) {
+          income = (row['income'] is int) ? (row['income'] as int).toDouble() : (row['income'] as double);
+        }
+        
         dailyData[date] = {
           'date': date,
-          'income': row['income'] as double? ?? 0.0,
+          'income': income,
           'expense': 0.0,
           'transactionCount': row['transaction_count'] as int? ?? 0,
         };
@@ -253,13 +312,19 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
       // Add expense data
       for (var row in expenseData) {
         final date = row['date'] as String;
+        // Convert numeric values to double
+        double expense = 0.0;
+        if (row['expense'] != null) {
+          expense = (row['expense'] is int) ? (row['expense'] as int).toDouble() : (row['expense'] as double);
+        }
+        
         if (dailyData.containsKey(date)) {
-          dailyData[date]!['expense'] = row['expense'] as double? ?? 0.0;
+          dailyData[date]!['expense'] = expense;
         } else {
           dailyData[date] = {
             'date': date,
             'income': 0.0,
-            'expense': row['expense'] as double? ?? 0.0,
+            'expense': expense,
             'transactionCount': 0,
           };
         }
@@ -268,9 +333,9 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
       // Convert to list and calculate net amount
       final List<Map<String, dynamic>> result = [];
       dailyData.forEach((date, data) {
-        final double income = data['income'] as double? ?? 0.0;
-        final double expense = data['expense'] as double? ?? 0.0;
-        final int transactionCount = data['transactionCount'] as int? ?? 0;
+        final double income = data['income'] as double;
+        final double expense = data['expense'] as double;
+        final int transactionCount = data['transactionCount'] as int;
         
         result.add({
           'date': date,
@@ -307,7 +372,7 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
         title: const Text('Laporan Keuangan'),
         actions: [
           ExportButton(
-            data: _financialSummary,
+            data: _generateExportData(),
             fileNamePrefix: 'laporan_keuangan',
           ),
         ],
@@ -347,6 +412,24 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
               ],
             ),
     );
+  }
+
+  // Prepare data for export
+  List<Map<String, dynamic>> _generateExportData() {
+    // Convert financial summary to a list of maps for export
+    final data = <Map<String, dynamic>>[];
+    
+    // Add summary data
+    data.add({
+      'title': 'Ringkasan Keuangan',
+      'periode': '${DateFormat('dd MMM yyyy').format(_dateRange.start)} - ${DateFormat('dd MMM yyyy').format(_dateRange.end)}',
+      'total_pendapatan': _financialSummary['totalRevenue'] ?? 0,
+      'total_pengeluaran': _financialSummary['totalExpenses'] ?? 0,
+      'laba_bersih': _financialSummary['netIncome'] ?? 0,
+      'total_pajak': _financialSummary['totalTax'] ?? 0,
+    });
+    
+    return data;
   }
 
   Widget _buildSummaryTab() {
@@ -444,23 +527,168 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
   }
 
   Widget _buildExpenseCategoryChart() {
-    // Implement pie chart for expense categories
-    return const SizedBox(
+    // Group expenses by category and calculate totals
+    final Map<String, double> categoryTotals = {};
+    for (var expense in _expenses) {
+      final category = expense.category;
+      categoryTotals[category] = (categoryTotals[category] ?? 0) + expense.amount;
+    }
+    
+    // No data check
+    if (categoryTotals.isEmpty) {
+      return const SizedBox(
+        height: 250,
+        child: Center(
+          child: Text('Tidak ada data pengeluaran untuk periode ini'),
+        ),
+      );
+    }
+    
+    // Prepare data for pie chart
+    final List<MapEntry<String, double>> sortedEntries = categoryTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    // Simple pie chart implementation
+    return SizedBox(
       height: 250,
-      child: Center(
-        child: Text('Grafik Kategori Pengeluaran akan ditampilkan di sini'),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  itemCount: sortedEntries.length,
+                  itemBuilder: (context, index) {
+                    final entry = sortedEntries[index];
+                    final total = categoryTotals.values.reduce((a, b) => a + b);
+                    final percentage = (entry.value / total * 100).toStringAsFixed(1);
+                    
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.primaries[index % Colors.primaries.length],
+                        child: Text('${index + 1}', style: const TextStyle(color: Colors.white)),
+                      ),
+                      title: Text(entry.key),
+                      subtitle: Text(_currencyFormat.format(entry.value)),
+                      trailing: Text('$percentage%'),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildSalesTimeChart() {
-    // Implement bar or line chart for sales by time (day of week, hour, etc)
-    return const SizedBox(
+    // Get sales data by day of week
+    final Map<String, double> salesByDayOfWeek = {
+      'Senin': 0,
+      'Selasa': 0,
+      'Rabu': 0,
+      'Kamis': 0,
+      'Jumat': 0,
+      'Sabtu': 0,
+      'Minggu': 0,
+    };
+    
+    // Populate sales data
+    for (var data in _cashFlowData) {
+      try {
+        final date = DateTime.parse(data['date'] as String);
+        final dayOfWeek = _getDayName(date.weekday);
+        final income = data['income'] as double;
+        
+        salesByDayOfWeek[dayOfWeek] = (salesByDayOfWeek[dayOfWeek] ?? 0) + income;
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error parsing date: $e');
+        }
+      }
+    }
+    
+    // Simple bar chart implementation
+    return SizedBox(
       height: 250,
-      child: Center(
-        child: Text('Grafik Penjualan Berdasarkan Waktu akan ditampilkan di sini'),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  itemCount: salesByDayOfWeek.length,
+                  itemBuilder: (context, index) {
+                    final entry = salesByDayOfWeek.entries.elementAt(index);
+                    final maxValue = salesByDayOfWeek.values.reduce((a, b) => a > b ? a : b);
+                    final percentage = maxValue > 0 ? entry.value / maxValue : 0;
+                    
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 80,
+                            child: Text(entry.key),
+                          ),
+                          Expanded(
+                            child: Stack(
+                              children: [
+                                Container(
+                                  height: 20,
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                ),
+                                FractionallySizedBox(
+                                  widthFactor: percentage,
+                                  child: Container(
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue,
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(
+                            width: 120,
+                            child: Text(
+                              _currencyFormat.format(entry.value),
+                              textAlign: TextAlign.end,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  String _getDayName(int day) {
+    switch (day) {
+      case 1: return 'Senin';
+      case 2: return 'Selasa';
+      case 3: return 'Rabu';
+      case 4: return 'Kamis';
+      case 5: return 'Jumat';
+      case 6: return 'Sabtu';
+      case 7: return 'Minggu';
+      default: return '';
+    }
   }
 
   Widget _buildCashFlowTab() {
@@ -495,7 +723,7 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
                   itemBuilder: (context, index) {
                     final data = _cashFlowData[index];
                     final date = DateTime.parse(data['date'] as String);
-                    final isPositive = (data['netAmount'] as num) >= 0;
+                    final isPositive = (data['netAmount'] as double) >= 0;
                     
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8.0),
@@ -554,9 +782,94 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
   }
 
   Widget _buildCashFlowChart() {
-    // Simple placeholder for the cash flow chart
-    return const Center(
-      child: Text('Chart will be displayed here'),
+    if (_cashFlowData.isEmpty) {
+      return const Center(child: Text('Tidak ada data untuk ditampilkan'));
+    }
+
+    // Prepare data for the chart
+    // Get the last 14 days of data to avoid overcrowding
+    final displayData = _cashFlowData.length > 14 
+        ? _cashFlowData.sublist(_cashFlowData.length - 14) 
+        : _cashFlowData;
+    
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Chip(
+                    label: Text('Pemasukan'),
+                    backgroundColor: Colors.green,
+                    labelStyle: TextStyle(color: Colors.white),
+                  ),
+                  SizedBox(width: 16),
+                  Chip(
+                    label: Text('Pengeluaran'),
+                    backgroundColor: Colors.red,
+                    labelStyle: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: displayData.length,
+                itemBuilder: (context, index) {
+                  final data = displayData[index];
+                  final income = data['income'] as double;
+                  final expense = data['expense'] as double;
+                  
+                  // Find max value for scaling
+                  double maxValue = 0;
+                  for (var data in displayData) {
+                    final income = data['income'] as double;
+                    final expense = data['expense'] as double;
+                    maxValue = [maxValue, income, expense].reduce((curr, next) => curr > next ? curr : next);
+                  }
+                  
+                  // Scale factor
+                  final scale = maxValue > 0 ? 200 / maxValue : 0;
+                  
+                  // Format date for label
+                  final date = DateTime.parse(data['date'] as String);
+                  final dayLabel = DateFormat('dd/MM').format(date);
+                  
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Income bar
+                        Container(
+                          width: 20,
+                          height: income * scale,
+                          color: Colors.green,
+                        ),
+                        const SizedBox(height: 4),
+                        // Expense bar
+                        Container(
+                          width: 20,
+                          height: expense * scale,
+                          color: Colors.red,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(dayLabel, style: const TextStyle(fontSize: 10)),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -624,7 +937,13 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
   Widget _buildPaymentMethodsTab() {
     double totalPayments = 0;
     for (var method in _paymentMethods) {
-      totalPayments += (method['amount'] as num?)?.toDouble() ?? 0;
+      // Handle null value
+      final methodAmount = method['amount'];
+      double amount = 0.0;
+      if (methodAmount != null) {
+        amount = methodAmount is int ? methodAmount.toDouble() : methodAmount as double;
+      }
+      totalPayments += amount;
     }
 
     return Column(
@@ -654,7 +973,13 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
                   itemCount: _paymentMethods.length,
                   itemBuilder: (context, index) {
                     final method = _paymentMethods[index];
-                    final amount = (method['amount'] as num?)?.toDouble() ?? 0;
+                    // Handle null value
+                    final methodAmount = method['amount'];
+                    double amount = 0.0;
+                    if (methodAmount != null) {
+                      amount = methodAmount is int ? methodAmount.toDouble() : methodAmount as double;
+                    }
+                    
                     final percentage = totalPayments > 0 ? (amount / totalPayments) * 100 : 0;
                     
                     return Card(
@@ -700,29 +1025,90 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
   }
 
   Widget _buildPaymentMethodsChart(double total) {
-    // Mengkonversi data payment methods menjadi List untuk chart
-    List<Map<String, dynamic>> chartData = [];
-    
-    // Hanya proses jika ada data
-    if (_paymentMethods.isNotEmpty) {
-      for (var method in _paymentMethods) {
-        final amount = (method['amount'] as num?)?.toDouble() ?? 0;
-        final percentage = total > 0 ? (amount / total) * 100 : 0;
-        
-        chartData.add({
-          'method': method['payment_method']?.toString() ?? 'Unknown',
-          'amount': amount,
-          'percentage': percentage,
-          'count': method['count'] ?? 0,
-        });
-      }
+    if (_paymentMethods.isEmpty) {
+      return const SizedBox(
+        height: 250,
+        child: Center(
+          child: Text('Tidak ada data metode pembayaran'),
+        ),
+      );
     }
-    
-    // Placeholder untuk chart
+
     return SizedBox(
       height: 250,
-      child: Center(
-        child: Text('Grafik Metode Pembayaran akan ditampilkan di sini. Total: ${_currencyFormat.format(total)}'),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _paymentMethods.length,
+                  itemBuilder: (context, index) {
+                    final method = _paymentMethods[index];
+                    // Handle null value
+                    final methodAmount = method['amount'];
+                    double amount = 0.0;
+                    if (methodAmount != null) {
+                      amount = methodAmount is int ? methodAmount.toDouble() : methodAmount as double;
+                    }
+                    
+                    final percentage = total > 0 ? (amount / total) * 100 : 0;
+                    final methodName = method['payment_method']?.toString() ?? 'Unknown';
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundColor: Colors.primaries[index % Colors.primaries.length],
+                            child: Text('${index + 1}', 
+                              style: const TextStyle(color: Colors.white, fontSize: 10)),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 80,
+                            child: Text(methodName, overflow: TextOverflow.ellipsis),
+                          ),
+                          Expanded(
+                            child: Stack(
+                              children: [
+                                Container(
+                                  height: 16,
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                                FractionallySizedBox(
+                                  widthFactor: percentage / 100,
+                                  child: Container(
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: Colors.primaries[index % Colors.primaries.length],
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${percentage.toStringAsFixed(1)}%',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../config/theme.dart';
 import '../../models/product.dart';
 import '../../models/inventory.dart';
 import '../../models/inventory_movement.dart';
@@ -11,11 +10,7 @@ import '../../services/inventory_service.dart';
 import '../../utils/formatters.dart';
 import '../../utils/export_utils.dart';
 import '../../widgets/app_drawer.dart';
-import '../../widgets/custom_app_bar.dart';
-import '../../widgets/loading_indicator.dart';
-import '../../widgets/empty_state.dart';
-import '../../widgets/chart/pie_chart.dart';
-import '../../widgets/chart/bar_chart.dart';
+import '../../services/database_service.dart';
 
 class InventoryReportScreen extends StatefulWidget {
   const InventoryReportScreen({super.key});
@@ -53,6 +48,8 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
     });
@@ -72,12 +69,11 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       final inventoryItems = await inventoryService.getInventoryItems(
         lowStockOnly: _filterBy == 'low_stock' ? true : null,
         search: _searchQuery.isNotEmpty ? _searchQuery : null,
-        categoryId: _selectedCategoryId,
       );
       
       // Load inventory movements from inventory transactions
-      // Akses database melalui _databaseService di InventoryService
-      final db = await inventoryService._databaseService.database;
+      final dbService = DatabaseService();
+      final db = await dbService.database;
       final startDate = DateTime.now().subtract(const Duration(days: 30));
       final endDate = DateTime.now();
       
@@ -102,7 +98,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
           id: map['id'] as int,
           productId: map['product_id'] as int,
           productName: map['product_name'] as String,
-          productSku: map['product_sku'] as String,
+          productSku: map['product_sku'] as String?,
           date: DateTime.parse(map['date'] as String),
           type: map['type'] as String,
           quantity: map['quantity'] is int ? 
@@ -125,20 +121,21 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       final summary = await inventoryService.getInventoryStatistics();
       
       // Process data for charts
-      final categoryData = _processCategoryData(products);
-      final movementData = _processMovementData(movements);
+      final categoryData = _processCategoryData(products, inventoryItems);
+      final movementData = _processMovementData(movements.toList());
       
-      setState(() {
-        _products = products;
-        _inventoryItems = inventoryItems;
-        _movements = movements;
-        _inventorySummary = summary;
-        _categoryData = categoryData;
-        _movementData = movementData;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _products = products;
+          _inventoryItems = inventoryItems;
+          _movements = movements.toList();
+          _inventorySummary = summary;
+          _categoryData = categoryData;
+          _movementData = movementData;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      // Guard untuk memastikan widget masih di-mount sebelum update state
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading inventory data: $e')),
@@ -150,7 +147,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
     }
   }
 
-  List<Map<String, dynamic>> _processCategoryData(List<Product> products) {
+  List<Map<String, dynamic>> _processCategoryData(List<Product> products, List<InventoryItem> inventoryItems) {
     // Create a map to count products by category
     final Map<String, int> categoryCounts = {};
     final Map<String, double> categoryValues = {};
@@ -162,7 +159,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
       
       // Calculate inventory value per category
-      final productInventory = _inventoryItems.firstWhere(
+      final productInventory = inventoryItems.firstWhere(
         (item) => item.productId == product.id,
         orElse: () => InventoryItem(
           id: 0,
@@ -270,17 +267,13 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       // Share the file
       await ExportUtils.shareFile(file, subject: 'Inventory Report');
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Inventory report exported successfully')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Inventory report exported successfully')),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to export report: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to export report: $e')),
+      );
     }
   }
 
@@ -337,25 +330,24 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       // Share the file
       await ExportUtils.shareFile(file, subject: 'Inventory Report');
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Inventory report exported successfully')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Inventory report exported successfully')),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to export report: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to export report: $e')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Use a default primary color
+    final primaryColor = Theme.of(context).primaryColor;
+    
     return Scaffold(
-      appBar: CustomAppBar(
-        title: 'Inventory Report',
+      appBar: AppBar(
+        title: const Text('Inventory Report'),
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
@@ -410,16 +402,18 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
           ),
         ],
       ),
-      drawer: const AppDrawer(),
+      drawer: const Drawer(
+        child: AppDrawer(),
+      ),
       body: _isLoading
-          ? const LoadingIndicator()
+          ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 // Filter indicator
                 if (_filterBy != 'all' || _selectedCategoryId != null || _searchQuery.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                    color: AppTheme.primaryColor.withAlpha(26), // 10% opacity = 26 as alpha
+                    color: primaryColor.withOpacity(0.1),
                     child: Row(
                       children: [
                         const Icon(Icons.filter_list, size: 16),
@@ -438,10 +432,10 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
                             });
                             _loadData();
                           },
-                          child: const Text(
+                          child: Text(
                             'Clear Filters',
                             style: TextStyle(
-                              color: AppTheme.primaryColor,
+                              color: primaryColor,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -503,7 +497,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
                 // Tab bar
                 TabBar(
                   controller: _tabController,
-                  labelColor: AppTheme.primaryColor,
+                  labelColor: primaryColor,
                   unselectedLabelColor: Colors.grey,
                   tabs: const [
                     Tab(text: 'SUMMARY'),
@@ -672,7 +666,6 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
                     labelText: 'Search by product name or SKU',
                     prefixIcon: Icon(Icons.search),
                   ),
-                  // Fix: initialValue is not valid for TextField
                   controller: TextEditingController(text: tempSearch),
                   onChanged: (value) {
                     tempSearch = value;
@@ -763,60 +756,271 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
   }
 
   Widget _buildSummaryTab() {
-    return _products.isEmpty
-        ? const EmptyState(
-            icon: Icons.inventory_2,
-            message: 'No inventory data available',
-          )
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Inventory Value by Category',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 300,
-                  child: PieChart(
-                    data: _categoryData,
-                    labelKey: 'category',
-                    valueKey: 'value',
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Inventory Movement (Last 30 Days)',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 300,
-                  child: BarChart(
-                    data: _movementData,
-                    xAxisKey: 'display_date',
-                    yAxisKey: 'in',
-                    barColor: Colors.blue,
-                  ),
-                ),
-              ],
+    if (_products.isEmpty) {
+      return const Center(
+        child: Text('No inventory data available'),
+      );
+    }
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Inventory Value by Category',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
-          );
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 300,
+            child: _buildCategoryValueChart(),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Inventory Movement (Last 30 Days)',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 300,
+            child: _buildMovementChart(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryValueChart() {
+    if (_categoryData.isEmpty) {
+      return const Center(child: Text('No category data available'));
+    }
+    
+    // Calculate total value for percentages
+    double totalValue = 0;
+    for (var item in _categoryData) {
+      totalValue += (item['value'] as double);
+    }
+    
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                itemCount: _categoryData.length,
+                itemBuilder: (context, index) {
+                  final item = _categoryData[index];
+                  final category = item['category'] as String;
+                  final value = item['value'] as double;
+                  final count = item['count'] as int;
+                  final percentage = totalValue > 0 ? (value / totalValue * 100) : 0;
+                  
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: Colors.primaries[index % Colors.primaries.length],
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            category,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '($count items)',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            Formatters.formatCurrency(value),
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 50,
+                          child: Text(
+                            '${percentage.toStringAsFixed(1)}%',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMovementChart() {
+    if (_movementData.isEmpty) {
+      return const Center(child: Text('No movement data available'));
+    }
+    
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.arrow_upward, color: Colors.green, size: 16),
+                  SizedBox(width: 4),
+                  Text('In', style: TextStyle(color: Colors.green)),
+                  SizedBox(width: 16),
+                  Icon(Icons.arrow_downward, color: Colors.red, size: 16),
+                  SizedBox(width: 4),
+                  Text('Out', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _movementData.length,
+                itemBuilder: (context, index) {
+                  final item = _movementData[index];
+                  final date = item['display_date'] as String;
+                  final inQty = item['in'] as double;
+                  final outQty = item['out'] as double;
+                  
+                  // Find the max value for scaling
+                  double maxValue = 0;
+                  for (var data in _movementData) {
+                    final inValue = data['in'] as double;
+                    final outValue = data['out'] as double;
+                    maxValue = [maxValue, inValue, outValue].reduce((curr, next) => curr > next ? curr : next);
+                  }
+                  
+                  // Calculate percentages for bar width
+                  final inPercentage = maxValue > 0 ? inQty / maxValue : 0;
+                  final outPercentage = maxValue > 0 ? outQty / maxValue : 0;
+                  
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(date, style: const TextStyle(fontSize: 12)),
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: 40,
+                              child: Text(
+                                inQty.toStringAsFixed(1),
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(fontSize: 10, color: Colors.green),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    height: 16,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                  FractionallySizedBox(
+                                    widthFactor: inPercentage,
+                                    child: Container(
+                                      height: 16,
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.withOpacity(0.7),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: 40,
+                              child: Text(
+                                outQty.toStringAsFixed(1),
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(fontSize: 10, color: Colors.red),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    height: 16,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                  FractionallySizedBox(
+                                    widthFactor: outPercentage,
+                                    child: Container(
+                                      height: 16,
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.withOpacity(0.7),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 8),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildInventoryTab() {
     if (_products.isEmpty) {
-      return const EmptyState(
-        icon: Icons.inventory_2,
-        message: 'No inventory data available',
+      return const Center(
+        child: Text('No inventory data available'),
       );
     }
     
@@ -919,9 +1123,8 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
 
   Widget _buildMovementsTab() {
     if (_movements.isEmpty) {
-      return const EmptyState(
-        icon: Icons.sync_alt,
-        message: 'No inventory movements available for the last 30 days',
+      return const Center(
+        child: Text('No inventory movements available for the last 30 days'),
       );
     }
     

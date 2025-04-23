@@ -11,24 +11,49 @@ import '../../services/inventory_service.dart';
 import '../../services/product_service.dart';
 import '../../services/api_service.dart';
 import '../../services/database_service.dart';
+import '../../config/constants.dart';
 
 /// Reports module for the MANUK POS application
 class ReportsModule {
   /// Register all report-related dependencies
-  static List<SingleChildWidget> registerProviders() {
+  static List<Provider> registerProviders() {
     return [
-      // Here you would register any report-specific services
-      // but we'll use the existing core services
+      // Core services that the reports rely on
+      Provider<DatabaseService>(
+        create: (_) => DatabaseService(),
+      ),
+      Provider<TransactionService>(
+        create: (_) => TransactionService(),
+      ),
+      Provider<InventoryService>(
+        create: (_) => InventoryService(),
+      ),
+      Provider<ApiService>(
+        create: (_) => ApiService(baseUrl: AppConstants.apiBaseUrl),
+      ),
+      // Dependent services - created as separate Provider instances
+      Provider<ProductService>(
+        create: (context) => ProductService(
+          apiService: Provider.of<ApiService>(context, listen: false),
+          databaseService: Provider.of<DatabaseService>(context, listen: false),
+        ),
+      ),
+      Provider<ExpenseService>(
+        create: (context) => ExpenseService(
+          apiService: Provider.of<ApiService>(context, listen: false),
+          databaseService: Provider.of<DatabaseService>(context, listen: false),
+        ),
+      ),
     ];
   }
   
   /// Register all report-related routes
   static Map<String, WidgetBuilder> registerRoutes() {
     return {
-      '/reports/sales': (context) => const SalesReportScreen(),
+      '/reports/sales': (context) => const SalesReport(),
       '/reports/expenses': (context) => const ExpenseReportScreen(),
       '/reports/inventory': (context) => const InventoryReportScreen(),
-      '/reports/financial': (context) => const FinancialReportScreen(),
+      '/reports/financial': (context) => const FinancialReport(),
     };
   }
   
@@ -100,26 +125,35 @@ class ReportsModule {
   /// Preload some common report data in the background
   static Future<void> _preloadReportData(BuildContext context) async {
     try {
-      // Get required services
-      final transactionService = Provider.of<TransactionService>(context, listen: false);
-      final productService = Provider.of<ProductService>(context, listen: false);
+      // Get required services safely
+      TransactionService? transactionService;
+      ProductService? productService;
       
-      // Preload some frequently used data in the background
-      // This can help improve performance when users open reports
-      
-      // For example, preload current month sales summary
-      final now = DateTime.now();
-      final startOfMonth = DateTime(now.year, now.month, 1);
-      final endOfMonth = DateTime(now.year, now.month + 1, 0);
+      try {
+        transactionService = Provider.of<TransactionService>(context, listen: false);
+        productService = Provider.of<ProductService>(context, listen: false);
+      } catch (e) {
+        debugPrint('Error getting services: $e');
+        return;
+      }
       
       // Load in background without blocking UI
       Future.microtask(() async {
-        await transactionService.getSalesSummary(
-          startDate: startOfMonth,
-          endDate: endOfMonth,
-        );
-        
-        await productService.getProducts(limit: 100);
+        try {
+          // Check if services are valid before calling their methods
+          if (transactionService != null) {
+            await transactionService.getInventoryItems(
+              branchId: AppConstants.branchDataKey,
+              limit: 10
+            );
+          }
+          
+          if (productService != null) {
+            await productService.getProducts(limit: 20);
+          }
+        } catch (e) {
+          debugPrint('Error in preloading background task: $e');
+        }
       });
     } catch (e) {
       // Silently handle errors in background preloading
