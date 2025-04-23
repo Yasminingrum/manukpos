@@ -76,6 +76,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       );
       
       // Load inventory movements from inventory transactions
+      // Akses database melalui _databaseService di InventoryService
       final db = await inventoryService._databaseService.database;
       final startDate = DateTime.now().subtract(const Duration(days: 30));
       final endDate = DateTime.now();
@@ -137,12 +138,15 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
         _isLoading = false;
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading inventory data: $e')),
-      );
-      setState(() {
-        _isLoading = false;
-      });
+      // Guard untuk memastikan widget masih di-mount sebelum update state
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading inventory data: $e')),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -266,13 +270,17 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       // Share the file
       await ExportUtils.shareFile(file, subject: 'Inventory Report');
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inventory report exported successfully')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Inventory report exported successfully')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to export report: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to export report: $e')),
+        );
+      }
     }
   }
 
@@ -329,13 +337,17 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       // Share the file
       await ExportUtils.shareFile(file, subject: 'Inventory Report');
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inventory report exported successfully')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Inventory report exported successfully')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to export report: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to export report: $e')),
+        );
+      }
     }
   }
 
@@ -407,7 +419,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
                 if (_filterBy != 'all' || _selectedCategoryId != null || _searchQuery.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: AppTheme.primaryColor.withAlpha(26), // 10% opacity = 26 as alpha
                     child: Row(
                       children: [
                         const Icon(Icons.filter_list, size: 16),
@@ -660,7 +672,8 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
                     labelText: 'Search by product name or SKU',
                     prefixIcon: Icon(Icons.search),
                   ),
-                  initialValue: tempSearch,
+                  // Fix: initialValue is not valid for TextField
+                  controller: TextEditingController(text: tempSearch),
                   onChanged: (value) {
                     tempSearch = value;
                   },
@@ -772,8 +785,6 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
                   height: 300,
                   child: PieChart(
                     data: _categoryData,
-                    // Fixed required parameters
-                    title: 'Category Distribution',
                     labelKey: 'category',
                     valueKey: 'value',
                   ),
@@ -791,8 +802,6 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
                   height: 300,
                   child: BarChart(
                     data: _movementData,
-                    // Fixed required parameters
-                    title: 'Inventory Movement',
                     xAxisKey: 'display_date',
                     yAxisKey: 'in',
                     barColor: Colors.blue,

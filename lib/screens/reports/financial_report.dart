@@ -700,11 +700,29 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
   }
 
   Widget _buildPaymentMethodsChart(double total) {
-    // Implement pie chart for payment methods
-    return const SizedBox(
+    // Mengkonversi data payment methods menjadi List untuk chart
+    List<Map<String, dynamic>> chartData = [];
+    
+    // Hanya proses jika ada data
+    if (_paymentMethods.isNotEmpty) {
+      for (var method in _paymentMethods) {
+        final amount = (method['amount'] as num?)?.toDouble() ?? 0;
+        final percentage = total > 0 ? (amount / total) * 100 : 0;
+        
+        chartData.add({
+          'method': method['payment_method']?.toString() ?? 'Unknown',
+          'amount': amount,
+          'percentage': percentage,
+          'count': method['count'] ?? 0,
+        });
+      }
+    }
+    
+    // Placeholder untuk chart
+    return SizedBox(
       height: 250,
       child: Center(
-        child: Text('Grafik Metode Pembayaran akan ditampilkan di sini'),
+        child: Text('Grafik Metode Pembayaran akan ditampilkan di sini. Total: ${_currencyFormat.format(total)}'),
       ),
     );
   }
