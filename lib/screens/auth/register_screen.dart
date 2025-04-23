@@ -42,7 +42,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final sharedPreferences = await SharedPreferences.getInstance();
     _authService = AuthService(
       databaseService: DatabaseService(),
-      apiService: ApiService(baseUrl: 'https://api.manuk-pos.com'),
+      apiService: ApiService(baseUrl: 'https://documenter.getpostman.com/view/37267696/2sB2ca8L6X'),
       sharedPreferences: sharedPreferences,
     );
   }

@@ -1,4 +1,3 @@
-// Import with explicit aliases to avoid conflicts
 import 'package:flutter/material.dart' as material;
 import '../../models/customer.dart';
 import '../../models/transaction.dart' as app_transaction;

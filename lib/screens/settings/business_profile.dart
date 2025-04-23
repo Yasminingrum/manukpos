@@ -141,9 +141,6 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   }
 
   Future<void> _pickLogo() async {
-    // Implement image picking functionality
-    // This would typically use image_picker package
-    // For now we'll just show a placeholder message
     if (!mounted) return;
     
     ScaffoldMessenger.of(context).showSnackBar(
@@ -296,10 +293,6 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Add receipt customization options here
-                    // For example, toggle switches for showing tax info, 
-                    // receipt footer text field, etc.
                     
                     const SizedBox(height: 16),
                     

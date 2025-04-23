@@ -169,10 +169,10 @@ class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProvid
         id: item.productId,
         sku: item.productSku,
         name: item.productName,
-        categoryId: 0, // Not needed here
-        category: '', // Add category parameter
-        buyingPrice: 0, // Not needed here
-        sellingPrice: 0, // Not needed here
+        categoryId: 0,
+        category: '',
+        buyingPrice: 0,
+        sellingPrice: 0,
         createdAt: '',
         updatedAt: '',
       )).toList();
@@ -190,7 +190,7 @@ class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProvid
         _opnameItems = validItems;
         _filteredProducts = productsList;
         _isLoading = false;
-        _currentTabIndex = 1; // Switch to Count tab
+        _currentTabIndex = 1;
       });
     } catch (e) {
       setState(() {
@@ -318,10 +318,10 @@ class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProvid
         id: item.productId,
         sku: item.productSku,
         name: item.productName,
-        categoryId: 0, // Not needed here
-        category: '', // Add category parameter
-        buyingPrice: 0, // Not needed here
-        sellingPrice: 0, // Not needed here
+        categoryId: 0, 
+        category: '', 
+        buyingPrice: 0, 
+        sellingPrice: 0,
         createdAt: '',
         updatedAt: '',
       )).toList();
@@ -341,9 +341,6 @@ class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProvid
       _showErrorSnackBar('Error loading stock opname: $e');
     }
   }
-
-// Fixed scanner implementation for stock_opname.dart
-// Replace the existing _scanBarcode and _processBarcodeResult methods with these:
 
 Future<void> _scanBarcode() async {
   try {
@@ -398,7 +395,7 @@ void _processBarcodeResult(String barcode) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Product with this barcode was not found'),
-          backgroundColor: Colors.red, // Replace AppTheme.errorColor with Colors.red
+          backgroundColor: Colors.red,
         ),
       );
     }
@@ -899,7 +896,7 @@ void _processBarcodeResult(String barcode) {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16.0),
-          color: Theme.of(context).primaryColor.withAlpha(26), // Using withAlpha instead of withOpacity
+          color: Theme.of(context).primaryColor.withAlpha(26),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1117,7 +1114,7 @@ void _processBarcodeResult(String barcode) {
         body: _isInitializing
             ? const Center(child: CircularProgressIndicator())
             : TabBarView(
-                physics: const NeverScrollableScrollPhysics(), // Disable swiping
+                physics: const NeverScrollableScrollPhysics(),
                 controller: tabController,
                 children: [
                   _buildOngoingTab(),

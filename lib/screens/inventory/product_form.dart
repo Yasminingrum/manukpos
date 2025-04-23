@@ -189,8 +189,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       // Upload image and get URL if image was picked
       String? imageUrl = _imageUrl;
       if (_imageFile != null) {
-        // In a real app, this would upload to a server or cloud storage
-        // For this example, we'll assume we're just keeping the local path
         imageUrl = _imageFile!.path;
       }
 

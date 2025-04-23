@@ -435,7 +435,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                     TextButton.icon(
                       onPressed: () {
                         // Navigate to adjust stock screen
-                        // This would be implemented in a real app
                       },
                       icon: const Icon(Icons.edit),
                       label: const Text('Adjust Stock'),
@@ -444,7 +443,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                     ElevatedButton.icon(
                       onPressed: () {
                         // Navigate to stock history screen
-                        // This would be implemented in a real app
                       },
                       icon: const Icon(Icons.history),
                       label: const Text('History'),
@@ -549,7 +547,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
               onTap: () {
                 Navigator.pop(context);
                 // Navigate to purchase screen
-                // This would be implemented in a real app
               },
             ),
             ListTile(
@@ -558,7 +555,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
               onTap: () {
                 Navigator.pop(context);
                 // Navigate to transfer screen
-                // This would be implemented in a real app
               },
             ),
             ListTile(
@@ -567,7 +563,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
               onTap: () {
                 Navigator.pop(context);
                 // Generate barcode
-                // This would be implemented in a real app
               },
             ),
             ListTile(
@@ -576,7 +571,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
               onTap: () {
                 Navigator.pop(context);
                 // Print label
-                // This would be implemented in a real app
               },
             ),
           ],

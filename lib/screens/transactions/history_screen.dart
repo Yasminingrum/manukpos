@@ -276,7 +276,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(13), // Use withAlpha instead of withOpacity
+            color: Colors.black.withAlpha(13),
             blurRadius: 2,
             offset: const Offset(0, 2),
           ),

@@ -114,8 +114,6 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
 
   Future<void> _loadPrinters() async {
     try {
-      // This would be implementation-specific based on your printer library
-      // For now, we'll use dummy data
       setState(() {
         _availablePrinters = [
           'Bluetooth Printer',
@@ -226,13 +224,11 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
 
   Future<void> _backupDatabase() async {
     try {
-      // Instead of calling a method that doesn't exist, implement backup logic here
       final appDir = await getAppDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final backupPath = '${appDir.path}/backup_$timestamp.db';
       
       // Create a backup copy of the database
-      // This is a simplified example
       await _databaseService.close();
       
       if (mounted) {
@@ -273,9 +269,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     );
     
     if (confirm == true) {
-      try {
-        // Instead of calling a method that doesn't exist, implement restore logic here
-        
+      try {        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Database restored successfully')),

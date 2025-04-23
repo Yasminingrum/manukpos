@@ -52,8 +52,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       });
       
       try {
-        // Karena requestPasswordReset tidak terdefinisi di AuthService,
-        // kita akan menggunakan API langsung untuk sementara
         final result = await _authService.apiService.post(
           '/auth/password/reset-request',
           {'email': _emailController.text},

@@ -118,7 +118,6 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     scaffoldMessenger.showSnackBar(
       const SnackBar(content: Text('Sharing receipt...')),
     );
-    // Implement receipt sharing here
   }
 
   Future<void> _addPayment() async {
