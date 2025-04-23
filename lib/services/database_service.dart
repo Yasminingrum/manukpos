@@ -5,6 +5,8 @@ import 'package:path/path.dart';
 import 'package:logger/logger.dart';
 import '../config/constants.dart';
 import '../models/category.dart';
+import '../models/business.dart';
+import '../models/user.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -275,6 +277,25 @@ class DatabaseService {
       FOREIGN KEY (branch_id) REFERENCES branches(id)
     )''');
     
+    // Create business_profile table
+    await db.execute('''
+    CREATE TABLE business_profile (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      address TEXT,
+      phone TEXT,
+      email TEXT,
+      tax_id TEXT,
+      logo_path TEXT,
+      footer_text TEXT,
+      show_tax_info INTEGER DEFAULT 1,
+      show_social_media INTEGER DEFAULT 0,
+      social_media_handles TEXT,
+      currency_symbol TEXT DEFAULT 'Rp',
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+    )''');
+    
     await batch.commit();
     
     // Insert default data
@@ -316,6 +337,21 @@ class DatabaseService {
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
     });
+    
+    // Insert default business profile
+    await db.insert('business_profile', {
+      'name': 'My Business',
+      'address': 'Business Address',
+      'phone': '081234567890',
+      'email': 'contact@mybusiness.com',
+      'tax_id': '',
+      'logo_path': null,
+      'footer_text': 'Terima kasih atas kunjungan Anda!',
+      'show_tax_info': 1,
+      'show_social_media': 0,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
   }
   
   // Upgrade database
@@ -326,6 +362,44 @@ class DatabaseService {
     if (oldVersion < 2) {
       // Example: Add new columns for version 2
       // await db.execute('ALTER TABLE users ADD COLUMN new_column TEXT');
+      
+      // Check if business_profile table exists
+      var tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='business_profile'");
+      if (tables.isEmpty) {
+        // Create business_profile table if it doesn't exist
+        await db.execute('''
+        CREATE TABLE business_profile (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          address TEXT,
+          phone TEXT,
+          email TEXT,
+          tax_id TEXT,
+          logo_path TEXT,
+          footer_text TEXT,
+          show_tax_info INTEGER DEFAULT 1,
+          show_social_media INTEGER DEFAULT 0,
+          social_media_handles TEXT,
+          currency_symbol TEXT DEFAULT 'Rp',
+          created_at TEXT DEFAULT (datetime('now', 'localtime')),
+          updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        )''');
+        
+        // Insert default business profile
+        await db.insert('business_profile', {
+          'name': 'My Business',
+          'address': 'Business Address',
+          'phone': '081234567890',
+          'email': 'contact@mybusiness.com',
+          'tax_id': '',
+          'logo_path': null,
+          'footer_text': 'Terima kasih atas kunjungan Anda!',
+          'show_tax_info': 1,
+          'show_social_media': 0,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
     }
   }
   
@@ -565,4 +639,152 @@ class DatabaseService {
       return Category.fromMap(maps[i]);
     });
   }
+  
+  // =============================================
+  // Business Profile methods
+  // =============================================
+  
+  // Get business profile
+  Future<Business?> getBusinessProfile() async {
+    logger.i('Fetching business profile');
+    
+    final List<Map<String, dynamic>> maps = await query(
+      'business_profile',
+      limit: 1,
+    );
+    
+    if (maps.isNotEmpty) {
+      return Business.fromMap(maps.first);
+    }
+    return null;
+  }
+  
+  // Save business profile
+  Future<int> saveBusinessProfile(Business business) async {
+    logger.i('Saving business profile: ${business.name}');
+    
+    // Convert Business object to Map
+    final Map<String, dynamic> businessMap = business.toMap();
+    
+    // Check if we have an existing record
+    final List<Map<String, dynamic>> existing = await query(
+      'business_profile',
+      limit: 1,
+    );
+    
+    if (existing.isNotEmpty) {
+      // Update existing record
+      return await update(
+        'business_profile',
+        businessMap,
+        'id = ?',
+        [existing.first['id']],
+      );
+    } else {
+      // Insert new record
+      return await insert('business_profile', businessMap);
+    }
+  }
+
+  // =============================================
+  // User specific methods
+  // =============================================
+  
+  // Get all users
+  Future<List<User>> getUsers() async {
+    logger.i('Fetching all users');
+    
+    final List<Map<String, dynamic>> maps = await query(
+      'users',
+      orderBy: 'name ASC',
+    );
+    
+    return List.generate(maps.length, (i) {
+      return User.fromMap(maps[i]);
+    });
+  }
+
+  // Get user by ID
+  Future<User?> getUserById(int id) async {
+    logger.i('Fetching user with ID: $id');
+    
+    final List<Map<String, dynamic>> maps = await query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    
+    if (maps.isNotEmpty) {
+      return User.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  // Update an existing user
+  Future<int> updateUser(User user) async {
+    logger.i('Updating user with ID: ${user.id}');
+    
+    // Convert User object to Map
+    final Map<String, dynamic> userMap = user.toMap();
+    
+    // Always update the timestamp
+    userMap['updated_at'] = DateTime.now().toIso8601String();
+    
+    // Remove the id from the map as it's used in the where clause
+    final userId = user.id;
+    userMap.remove('id');
+    
+    // If password is null, remove it from the map to avoid overwriting existing password
+    if (userMap['password'] == null) {
+      userMap.remove('password');
+    }
+    
+    return await update(
+      'users',
+      userMap,
+      'id = ?',
+      [userId],
+    );
+  }
+
+  // Create a new user
+  Future<int> createUser(User user) async {
+    logger.i('Creating new user: ${user.username}');
+    
+    // Convert User object to Map
+    final Map<String, dynamic> userMap = user.toMap();
+    
+    // Remove id if it's null (for auto-increment)
+    userMap.remove('id');
+    
+    // Add timestamps
+    userMap['created_at'] = DateTime.now().toIso8601String();
+    userMap['updated_at'] = DateTime.now().toIso8601String();
+    
+    return await insert('users', userMap);
+  }
+
+  // Delete a user
+  Future<int> deleteUser(int id) async {
+    logger.i('Deleting user with ID: $id');
+    
+    return await delete(
+      'users',
+      'id = ?',
+      [id],
+    );
+  }
+
+  // Get all branches
+  Future<List<Map<String, dynamic>>> getBranches() async {
+    logger.i('Fetching all branches');
+    
+    return await query(
+      'branches',
+      where: 'is_active = ?',
+      whereArgs: [1],
+      orderBy: 'is_main_branch DESC, name ASC',
+    );
+  }
+
 }

@@ -49,9 +49,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       if (transactions.isNotEmpty) {
         // Get customer, user and branch names
         final customer = transactions[0]['customer_id'] != null ? 
-            await db.query('customers', 'id = ?', [transactions[0]['customer_id']]) : [];
-        final user = await db.query('users', 'id = ?', [transactions[0]['user_id']]);
-        final branch = await db.query('branches', 'id = ?', [transactions[0]['branch_id']]);
+            await db.query('customers', where: 'id = ?', whereArgs: [transactions[0]['customer_id']]) : [];
+        final user = await db.query('users', where: 'id = ?', whereArgs: [transactions[0]['user_id']]);
+        final branch = await db.query('branches', where: 'id = ?', whereArgs: [transactions[0]['branch_id']]);
         
         final Map<String, dynamic> transactionData = Map.from(transactions[0]);
         transactionData['customerName'] = customer.isNotEmpty ? customer[0]['name'] : 'Walk-in Customer';
@@ -86,28 +86,36 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       
       _payments = payments.map((payment) => Payment.fromMap(payment)).toList();
 
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) { // Check if widget is still mounted before updating state
+        setState(() {
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading transaction details: $e')),
-      );
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) { // Check if widget is still mounted before showing snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading transaction details: $e')),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _printReceipt() async {
-    ScaffoldMessenger.of(context).showSnackBar(
+    // Store context in a local variable to use after async operation
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    scaffoldMessenger.showSnackBar(
       const SnackBar(content: Text('Printing receipt...')),
     );
     // Implement receipt printing here
   }
 
   Future<void> _shareReceipt() async {
-    ScaffoldMessenger.of(context).showSnackBar(
+    // Store context in a local variable to use after async operation
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    scaffoldMessenger.showSnackBar(
       const SnackBar(content: Text('Sharing receipt...')),
     );
     // Implement receipt sharing here
@@ -124,15 +132,18 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       return;
     }
 
+    // Store context in a local variable to use after async operation
+    final currentContext = context;
+    
     final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
+      context: currentContext,
       isScrollControlled: true,
       builder: (context) => _PaymentBottomSheet(
         remainingAmount: remainingAmount,
       ),
     );
 
-    if (result != null) {
+    if (result != null && mounted) {
       setState(() {
         _isProcessingPayment = true;
       });
@@ -173,17 +184,23 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
         
         await _loadTransactionDetails();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment added successfully')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Payment added successfully')),
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding payment: $e')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error adding payment: $e')),
+          );
+        }
       } finally {
-        setState(() {
-          _isProcessingPayment = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isProcessingPayment = false;
+          });
+        }
       }
     }
   }
@@ -825,7 +842,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withAlpha(25),  // Use withAlpha instead of withOpacity
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),

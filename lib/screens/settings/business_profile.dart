@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import '../../models/business.dart';
 import '../../services/database_service.dart';
 import '../../widgets/custom_text_field.dart';
-import '../../utils/validators.dart';
+// Removed unused import: '../../utils/validators.dart'
 
 class BusinessProfileScreen extends StatefulWidget {
   const BusinessProfileScreen({super.key});
 
   @override
-  _BusinessProfileScreenState createState() => _BusinessProfileScreenState();
+  State<BusinessProfileScreen> createState() => _BusinessProfileScreenState();
 }
 
 class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
@@ -39,23 +39,30 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     });
     
     try {
-      // Assuming this function fetches business data from the local database
-      final business = await _databaseService.getBusinessProfile();
+      // Menggunakan query untuk mengambil business profile dari database
+      final profiles = await _databaseService.query(
+        'business_profile',
+        limit: 1,
+      );
+      
+      if (!mounted) return;
       
       setState(() {
-        _business = business;
-        if (business != null) {
-          _nameController.text = business.name;
-          _addressController.text = business.address ?? '';
-          _phoneController.text = business.phone ?? '';
-          _emailController.text = business.email ?? '';
-          _taxIdController.text = business.taxId ?? '';
-          _logoPath = business.logoPath;
+        if (profiles.isNotEmpty) {
+          _business = Business.fromMap(profiles.first);
+          _nameController.text = _business!.name;
+          _addressController.text = _business!.address ?? '';
+          _phoneController.text = _business!.phone ?? '';
+          _emailController.text = _business!.email ?? '';
+          _taxIdController.text = _business!.taxId ?? '';
+          _logoPath = _business!.logoPath;
         }
         _isLoading = false;
       });
     } catch (e) {
       // Handle error
+      if (!mounted) return;
+      
       setState(() {
         _isLoading = false;
       });
@@ -75,7 +82,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     });
     
     try {
-      final updatedBusiness = Business(
+      // Changed from final to var since we need to modify it
+      var updatedBusiness = Business(
         id: _business?.id,
         name: _nameController.text,
         address: _addressController.text,
@@ -85,8 +93,33 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
         logoPath: _logoPath,
       );
       
-      // Save to database
-      await _databaseService.saveBusinessProfile(updatedBusiness);
+      // Save to database using generic methods instead of specific function
+      if (_business?.id != null) {
+        // Update existing record
+        await _databaseService.update(
+          'business_profile',
+          updatedBusiness.toMap(),
+          'id = ?',
+          [_business!.id],
+        );
+      } else {
+        // Insert new record
+        final id = await _databaseService.insert(
+          'business_profile',
+          updatedBusiness.toMap(),
+        );
+        updatedBusiness = Business(
+          id: id,
+          name: updatedBusiness.name,
+          address: updatedBusiness.address,
+          phone: updatedBusiness.phone,
+          email: updatedBusiness.email,
+          taxId: updatedBusiness.taxId,
+          logoPath: updatedBusiness.logoPath,
+        );
+      }
+      
+      if (!mounted) return;
       
       setState(() {
         _business = updatedBusiness;
@@ -97,6 +130,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
         const SnackBar(content: Text('Business profile saved successfully')),
       );
     } catch (e) {
+      if (!mounted) return;
+      
       setState(() {
         _isSaving = false;
       });
@@ -110,6 +145,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     // Implement image picking functionality
     // This would typically use image_picker package
     // For now we'll just show a placeholder message
+    if (!mounted) return;
+    
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Logo picking functionality to be implemented')),
     );
@@ -191,19 +228,24 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                     // Business Name
                     CustomTextField(
                       controller: _nameController,
-                      label: 'Business Name',
-                      hint: 'Enter your business name',
-                      prefixIcon: Icons.business,
-                      validator: (value) => Validators.required(value, 'Business name is required'),
+                      labelText: 'Business Name',
+                      hintText: 'Enter your business name',
+                      prefixIcon: const Icon(Icons.business),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Business name is required';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     
                     // Address
                     CustomTextField(
                       controller: _addressController,
-                      label: 'Address',
-                      hint: 'Enter your business address',
-                      prefixIcon: Icons.location_on,
+                      labelText: 'Address',
+                      hintText: 'Enter your business address',
+                      prefixIcon: const Icon(Icons.location_on),
                       maxLines: 3,
                     ),
                     const SizedBox(height: 16),
@@ -211,9 +253,9 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                     // Phone
                     CustomTextField(
                       controller: _phoneController,
-                      label: 'Phone',
-                      hint: 'Enter your business phone',
-                      prefixIcon: Icons.phone,
+                      labelText: 'Phone',
+                      hintText: 'Enter your business phone',
+                      prefixIcon: const Icon(Icons.phone),
                       keyboardType: TextInputType.phone,
                     ),
                     const SizedBox(height: 16),
@@ -221,22 +263,28 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                     // Email
                     CustomTextField(
                       controller: _emailController,
-                      label: 'Email',
-                      hint: 'Enter your business email',
-                      prefixIcon: Icons.email,
+                      labelText: 'Email',
+                      hintText: 'Enter your business email',
+                      prefixIcon: const Icon(Icons.email),
                       keyboardType: TextInputType.emailAddress,
-                      validator: (value) => value != null && value.isNotEmpty
-                          ? Validators.email(value)
-                          : null,
+                      validator: (value) {
+                        if (value != null && value.isNotEmpty) {
+                          // Simple email validation
+                          if (!value.contains('@') || !value.contains('.')) {
+                            return 'Please enter a valid email';
+                          }
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     
                     // Tax ID
                     CustomTextField(
                       controller: _taxIdController,
-                      label: 'Tax ID / NPWP',
-                      hint: 'Enter your tax ID number',
-                      prefixIcon: Icons.receipt_long,
+                      labelText: 'Tax ID / NPWP',
+                      hintText: 'Enter your tax ID number',
+                      prefixIcon: const Icon(Icons.receipt_long),
                     ),
                     const SizedBox(height: 24),
                     

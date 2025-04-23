@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
+// Using mobile_scanner instead of flutter_barcode_scanner
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../config/theme.dart';
 import '../../config/constants.dart';
 import '../../models/product.dart';
@@ -128,20 +129,51 @@ class _PosScreenState extends State<PosScreen> {
 
   Future<void> _scanBarcode() async {
     try {
-      String barcode = await FlutterBarcodeScanner.scanBarcode(
-        '#FF6666', 'Batal', true, ScanMode.BARCODE);
-      
-      if (barcode != '-1') {
-        final product = _products.firstWhere(
-          (p) => p.barcode == barcode,
-          orElse: () => throw Exception('Product not found'),
-        );
-        _addToCart(product);
-      }
+      // Using mobile_scanner instead of flutter_barcode_scanner
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Scan Barcode'),
+            ),
+            body: MobileScanner(
+              onDetect: (capture) {
+                final List<Barcode> barcodes = capture.barcodes;
+                if (barcodes.isNotEmpty) {
+                  final String? barcode = barcodes.first.rawValue;
+                  if (barcode != null) {
+                    Navigator.of(context).pop();
+                    _processBarcodeResult(barcode);
+                  }
+                }
+              },
+            ),
+          ),
+        ),
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Error scanning barcode: $e');
       }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Terjadi kesalahan saat membaca barcode'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
+  }
+
+  void _processBarcodeResult(String barcode) {
+    try {
+      final product = _products.firstWhere(
+        (p) => p.barcode == barcode,
+        orElse: () => throw Exception('Product not found'),
+      );
+      _addToCart(product);
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -219,6 +251,21 @@ class _PosScreenState extends State<PosScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // Method to show checkout dialog
+  void _showCheckoutDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return _buildCheckoutDialog(setModalState);
+          },
+        );
+      },
     );
   }
 

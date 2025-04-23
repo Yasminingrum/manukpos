@@ -26,7 +26,6 @@ class NetworkUtils {
 
   /// Get base API URL from config or preferences
   static Future<String> getBaseUrl() async {
-    // TODO: Implement getting the base URL from shared preferences or config
     return 'https://api.manuk-pos.com/api/v1';
   }
 

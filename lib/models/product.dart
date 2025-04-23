@@ -24,6 +24,9 @@ class Product {
   final String createdAt;
   final String updatedAt;
   final String? syncStatus;
+  
+  // Tambahkan properti untuk currentStock
+  final double? currentStock;
 
   Product({
     required this.id,
@@ -50,6 +53,7 @@ class Product {
     required this.createdAt,
     required this.updatedAt,
     this.syncStatus,
+    this.currentStock,
   });
 
   // Create a copy of this product with updated fields
@@ -78,6 +82,7 @@ class Product {
     String? createdAt,
     String? updatedAt,
     String? syncStatus,
+    double? currentStock,
   }) {
     return Product(
       id: id ?? this.id,
@@ -104,6 +109,7 @@ class Product {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       syncStatus: syncStatus ?? this.syncStatus,
+      currentStock: currentStock ?? this.currentStock,
     );
   }
 
@@ -134,6 +140,7 @@ class Product {
       createdAt: json['created_at'],
       updatedAt: json['updated_at'],
       syncStatus: json['sync_status'],
+      currentStock: json['current_stock']?.toDouble(),
     );
   }
 
@@ -168,6 +175,7 @@ class Product {
       'created_at': createdAt,
       'updated_at': updatedAt,
       'sync_status': syncStatus,
+      'current_stock': currentStock,
     };
   }
 

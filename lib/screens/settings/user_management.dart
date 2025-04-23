@@ -107,7 +107,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     
     if (confirm == true) {
       try {
-        await _databaseService.deleteUser(user.id);
+        await _databaseService.deleteUser(user.id!);
         _loadUsers();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('User ${user.name} deleted')),
