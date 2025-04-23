@@ -11,7 +11,6 @@ import '../screens/dashboard/dashboard_screen.dart';
 
 // Transaction Screens
 import '../screens/transactions/pos_screen.dart';
-import '../screens/transactions/purchasing_screen.dart';
 import '../screens/transactions/history_screen.dart';
 import '../screens/transactions/transaction_detail_screen.dart';
 
@@ -40,6 +39,12 @@ import '../screens/settings/business_profile.dart';
 import '../screens/settings/user_management.dart';
 import '../screens/settings/app_settings.dart';
 
+// Models
+import '../models/customer.dart';
+import '../models/supplier.dart';
+
+// Services
+import '../services/database_service.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -74,17 +79,11 @@ class AppRouter {
   static const String salesReport = '/reports/sales';
   static const String inventoryReport = '/reports/inventory';
   static const String financialReport = '/reports/financial';
-  static const String expenseReport = '/reports/expenses';
   
   // Settings routes
   static const String businessProfile = '/settings/business';
   static const String userManagement = '/settings/users';
   static const String appSettings = '/settings/app';
-  
-  // Expense routes
-  static const String expenses = '/expenses';
-  static const String expenseDetail = '/expenses/detail';
-  static const String expenseForm = '/expenses/form';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     final args = settings.arguments;
@@ -105,11 +104,12 @@ class AppRouter {
       case pos:
         return MaterialPageRoute(builder: (_) => const PosScreen());
       
+      // PurchasingScreen belum diimplementasikan
       case purchasing:
-        return MaterialPageRoute(builder: (_) => const PurchasingScreen());
+        return _errorRoute();
       
       case transactionHistory:
-        return MaterialPageRoute(builder: (_) => const TransactionHistoryScreen());
+        return MaterialPageRoute(builder: (_) => const HistoryScreen());
       
       case transactionDetail:
         if (args is int) {
@@ -136,7 +136,10 @@ class AppRouter {
           productId = args;
         }
         return MaterialPageRoute(
-          builder: (_) => ProductFormScreen(productId: productId)
+          builder: (_) => ProductFormScreen(
+            isEditing: productId != null, 
+            productId: productId
+          )
         );
       
       case categories:
@@ -145,27 +148,53 @@ class AppRouter {
       case stockOpname:
         return MaterialPageRoute(builder: (_) => const StockOpnameScreen());
         
+      // InventoryMovementScreen belum diimplementasikan
       case inventoryMovements:
-        return MaterialPageRoute(builder: (_) => const InventoryMovementScreen());
+        return _errorRoute();
       
       case customers:
         return MaterialPageRoute(builder: (_) => const CustomerListScreen());
       
       case customerDetail:
         if (args is int) {
+          // Menggunakan FutureBuilder untuk mengambil data customer terlebih dahulu
           return MaterialPageRoute(
-            builder: (_) => CustomerDetailScreen(customerId: args)
+            builder: (context) {
+              return FutureBuilder<Customer?>(
+                future: _getCustomerById(args),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  
+                  if (snapshot.hasError) {
+                    return Scaffold(
+                      appBar: AppBar(title: const Text('Error')),
+                      body: Center(child: Text('Error: ${snapshot.error}')),
+                    );
+                  }
+                  
+                  if (!snapshot.hasData) {
+                    return Scaffold(
+                      appBar: AppBar(title: const Text('Customer Not Found')),
+                      body: const Center(child: Text('Customer tidak ditemukan')),
+                    );
+                  }
+                  
+                  return CustomerDetailScreen(customer: snapshot.data!);
+                },
+              );
+            },
           );
         }
         return _errorRoute();
       
       case customerForm:
-        int? customerId;
-        if (args != null && args is int) {
-          customerId = args;
-        }
+        // CustomerFormScreen dapat menerima parameter opsional
         return MaterialPageRoute(
-          builder: (_) => CustomerFormScreen(customerId: customerId)
+          builder: (_) => const CustomerFormScreen()
         );
       
       case suppliers:
@@ -173,32 +202,54 @@ class AppRouter {
       
       case supplierDetail:
         if (args is int) {
+          // Menggunakan FutureBuilder untuk mengambil data supplier terlebih dahulu
           return MaterialPageRoute(
-            builder: (_) => SupplierDetailScreen(supplierId: args)
+            builder: (context) {
+              return FutureBuilder<Supplier?>(
+                future: _getSupplierById(args),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  
+                  if (snapshot.hasError) {
+                    return Scaffold(
+                      appBar: AppBar(title: const Text('Error')),
+                      body: Center(child: Text('Error: ${snapshot.error}')),
+                    );
+                  }
+                  
+                  if (!snapshot.hasData) {
+                    return Scaffold(
+                      appBar: AppBar(title: const Text('Supplier Not Found')),
+                      body: const Center(child: Text('Supplier tidak ditemukan')),
+                    );
+                  }
+                  
+                  return SupplierDetailScreen(supplier: snapshot.data!);
+                },
+              );
+            },
           );
         }
         return _errorRoute();
       
       case supplierForm:
-        int? supplierId;
-        if (args != null && args is int) {
-          supplierId = args;
-        }
+        // SupplierFormScreen dapat menerima parameter opsional
         return MaterialPageRoute(
-          builder: (_) => SupplierFormScreen(supplierId: supplierId)
+          builder: (_) => const SupplierFormScreen()
         );
       
       case salesReport:
-        return MaterialPageRoute(builder: (_) => const SalesReportScreen());
+        return MaterialPageRoute(builder: (_) => const SalesReport());
       
       case inventoryReport:
         return MaterialPageRoute(builder: (_) => const InventoryReportScreen());
       
       case financialReport:
-        return MaterialPageRoute(builder: (_) => const FinancialReportScreen());
-        
-      case expenseReport:
-        return MaterialPageRoute(builder: (_) => const ExpenseReportScreen());
+        return MaterialPageRoute(builder: (_) => const FinancialReport());
       
       case businessProfile:
         return MaterialPageRoute(builder: (_) => const BusinessProfileScreen());
@@ -208,30 +259,44 @@ class AppRouter {
       
       case appSettings:
         return MaterialPageRoute(builder: (_) => const AppSettingsScreen());
-        
-      case expenses:
-        return MaterialPageRoute(builder: (_) => const ExpenseListScreen());
-        
-      case expenseDetail:
-        if (args is int) {
-          return MaterialPageRoute(
-            builder: (_) => ExpenseDetailScreen(expenseId: args)
-          );
-        }
-        return _errorRoute();
-        
-      case expenseForm:
-        int? expenseId;
-        if (args != null && args is int) {
-          expenseId = args;
-        }
-        return MaterialPageRoute(
-          builder: (_) => ExpenseFormScreen(expenseId: expenseId)
-        );
       
       default:
         return _errorRoute();
     }
+  }
+  
+  // Helper method untuk mendapatkan customer berdasarkan ID
+  static Future<Customer?> _getCustomerById(int id) async {
+    final dbService = DatabaseService();
+    final customers = await dbService.query(
+      'customers',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    
+    if (customers.isEmpty) {
+      return null;
+    }
+    
+    return Customer.fromMap(customers.first);
+  }
+  
+  // Helper method untuk mendapatkan supplier berdasarkan ID
+  static Future<Supplier?> _getSupplierById(int id) async {
+    final dbService = DatabaseService();
+    final suppliers = await dbService.query(
+      'suppliers',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    
+    if (suppliers.isEmpty) {
+      return null;
+    }
+    
+    return Supplier.fromMap(suppliers.first);
   }
   
   static Route<dynamic> _errorRoute() {

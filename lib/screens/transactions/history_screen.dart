@@ -9,8 +9,8 @@ import 'transaction_detail_screen.dart';
 // Wrapper class for Transaction with additional properties
 class TransactionWrapper {
   final Transaction transaction;
-  String? customerName;
-  String? supplierName;
+  final String? customerName;
+  final String? supplierName;
   
   TransactionWrapper(this.transaction, {this.customerName, this.supplierName});
 }
@@ -28,7 +28,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime _endDate = DateTime.now();
   
-  List<TransactionWrapper> _allTransactions = [];
+  // Use List<TransactionWrapper> for all these lists
   List<TransactionWrapper> _filteredTransactions = [];
   List<TransactionWrapper> _salesTransactions = [];
   List<TransactionWrapper> _purchaseTransactions = [];
@@ -121,7 +121,6 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
       }
 
       setState(() {
-        _allTransactions = transactions;
         _salesTransactions = transactions.where((t) => t.transaction.type == 'sale').toList();
         _purchaseTransactions = transactions.where((t) => t.transaction.type == 'purchase').toList();
         _applyFilters();
@@ -154,7 +153,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       transactions = transactions.where((t) {
-        final transDate = DateTime.parse(t.transaction.transactionDate);
+        final transDate = DateTime.parse(t.transaction.transactionDate!);
         return transDate.isAfter(today.subtract(const Duration(seconds: 1))) && 
                transDate.isBefore(today.add(const Duration(days: 1)));
       }).toList();
@@ -163,7 +162,8 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
       final weekStart = now.subtract(Duration(days: now.weekday - 1));
       final startDate = DateTime(weekStart.year, weekStart.month, weekStart.day);
       transactions = transactions.where((t) {
-        final transDate = DateTime.parse(t.transaction.transactionDate);
+        if (t.transaction.transactionDate == null) return false;
+        final transDate = DateTime.parse(t.transaction.transactionDate!);
         return transDate.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
                transDate.isBefore(now.add(const Duration(days: 1)));
       }).toList();
@@ -171,13 +171,15 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
       final now = DateTime.now();
       final startDate = DateTime(now.year, now.month, 1);
       transactions = transactions.where((t) {
-        final transDate = DateTime.parse(t.transaction.transactionDate);
+        if (t.transaction.transactionDate == null) return false;
+        final transDate = DateTime.parse(t.transaction.transactionDate!);
         return transDate.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
                transDate.isBefore(now.add(const Duration(days: 1)));
       }).toList();
     } else if (_selectedFilter == 'custom') {
       transactions = transactions.where((t) {
-        final transDate = DateTime.parse(t.transaction.transactionDate);
+        if (t.transaction.transactionDate == null) return false;
+        final transDate = DateTime.parse(t.transaction.transactionDate!);
         return transDate.isAfter(_startDate.subtract(const Duration(seconds: 1))) && 
                transDate.isBefore(_endDate.add(const Duration(days: 1)));
       }).toList();
@@ -274,7 +276,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13), // Use withAlpha instead of withOpacity
             blurRadius: 2,
             offset: const Offset(0, 2),
           ),
@@ -343,7 +345,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
           _updateDateRange(value);
         }
       },
-      selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
+      selectedColor: Theme.of(context).primaryColor.withAlpha(51), // Use withAlpha instead of withOpacity
       checkmarkColor: Theme.of(context).primaryColor,
     );
   }
@@ -372,7 +374,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
     // Check if it's a sales transaction
     final isInvoice = transaction.type == 'sale';
     final formattedDate = DateFormat('dd MMM yyyy, HH:mm').format(
-      DateTime.parse(transaction.transactionDate),
+      DateTime.parse(transaction.transactionDate ?? DateTime.now().toIso8601String()),
     );
     
     // Create a currency formatter
@@ -390,7 +392,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
             context,
             MaterialPageRoute(
               builder: (context) => TransactionDetailScreen(
-                transactionId: transaction.id,
+                transactionId: transaction.id ?? 0,
               ),
             ),
           );

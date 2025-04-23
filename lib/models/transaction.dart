@@ -33,6 +33,8 @@ class Transaction {
   final String? createdAt;
   final String? updatedAt;
   final String? syncStatus;
+  // Add transaction type field
+  final String type;
   
   // Additional fields for UI display
   final String? customerName;
@@ -71,6 +73,7 @@ class Transaction {
     this.createdAt,
     this.updatedAt,
     this.syncStatus = 'pending',
+    this.type = 'sale', // Default value for type
     
     // Additional fields
     this.customerName,
@@ -127,6 +130,7 @@ class Transaction {
     String? createdAt,
     String? updatedAt,
     String? syncStatus,
+    String? type,
     String? customerName,
     String? userName,
     String? branchName,
@@ -163,6 +167,7 @@ class Transaction {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       syncStatus: syncStatus ?? this.syncStatus,
+      type: type ?? this.type,
       customerName: customerName ?? this.customerName,
       userName: userName ?? this.userName,
       branchName: branchName ?? this.branchName,
@@ -203,6 +208,7 @@ class Transaction {
       'created_at': createdAt,
       'updated_at': updatedAt,
       'sync_status': syncStatus,
+      'type': type,
     };
   }
 
@@ -247,6 +253,7 @@ class Transaction {
       createdAt: map['created_at'],
       updatedAt: map['updated_at'],
       syncStatus: map['sync_status'] ?? 'pending',
+      type: map['type'] ?? 'sale',
       customerName: map['customer_name'],
       userName: map['user_name'],
       branchName: map['branch_name'],
