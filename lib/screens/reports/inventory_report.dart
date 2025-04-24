@@ -202,7 +202,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
         movementsByDate[dateStr] = {'in': 0, 'out': 0};
       }
       
-      if (movement.type == InventoryMovement.TYPE_IN) {
+      if (movement.type == InventoryMovement.typeIn) {
         movementsByDate[dateStr]!['in'] = (movementsByDate[dateStr]!['in'] ?? 0) + movement.quantity;
       } else {
         movementsByDate[dateStr]!['out'] = (movementsByDate[dateStr]!['out'] ?? 0) + movement.quantity;
@@ -1010,7 +1010,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       itemCount: _movements.length,
       itemBuilder: (context, index) {
         final movement = _movements[index];
-        final isIncoming = movement.type == InventoryMovement.TYPE_IN;
+        final isIncoming = movement.type == InventoryMovement.typeIn;
         
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

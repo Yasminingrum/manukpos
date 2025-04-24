@@ -131,26 +131,26 @@ class Payment {
   }
 
   // Payment method types
-  static const String METHOD_CASH = 'cash';
-  static const String METHOD_CREDIT_CARD = 'credit_card';
-  static const String METHOD_DEBIT_CARD = 'debit_card';
-  static const String METHOD_E_WALLET = 'e_wallet';
-  static const String METHOD_BANK_TRANSFER = 'bank_transfer';
-  static const String METHOD_CHEQUE = 'cheque';
-  static const String METHOD_LOYALTY_POINTS = 'loyalty_points';
-  static const String METHOD_CREDIT = 'credit';
+  static const String methodCsh = 'cash';
+  static const String methodCreditCard = 'credit_card';
+  static const String methodDebitCard = 'debit_card';
+  static const String methodEWallet = 'e_wallet';
+  static const String methodBankTransfer = 'bank_transfer';
+  static const String methodCheque = 'cheque';
+  static const String methodLoyaltyPoints = 'loyalty_points';
+  static const String methodCredit = 'credit';
   
   // Payment status types
-  static const String STATUS_COMPLETED = 'completed';
-  static const String STATUS_PENDING = 'pending';
-  static const String STATUS_FAILED = 'failed';
-  static const String STATUS_REFUNDED = 'refunded';
-  static const String STATUS_PARTIAL = 'partial';
+  static const String statusCompleted= 'completed';
+  static const String statusPending= 'pending';
+  static const String statusFailed = 'failed';
+  static const String statusRefunded = 'refunded';
+  static const String statusPartial = 'partial';
 
   // Sync status types
-  static const String SYNC_PENDING = 'pending';
-  static const String SYNC_SYNCED = 'synced';
-  static const String SYNC_FAILED = 'failed';
+  static const String syncPending = 'pending';
+  static const String syncSynced = 'synced';
+  static const String syncFailed = 'failed';
 
   @override
   String toString() {

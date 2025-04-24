@@ -340,20 +340,20 @@ class ExpenseService {
       
       // If offline or API call fails, return predefined list
       return [
-        Expense.CATEGORY_UTILITIES,
-        Expense.CATEGORY_RENT,
-        Expense.CATEGORY_SUPPLIES,
-        Expense.CATEGORY_SALARY,
-        Expense.CATEGORY_MARKETING,
-        Expense.CATEGORY_MAINTENANCE,
-        Expense.CATEGORY_EQUIPMENT,
-        Expense.CATEGORY_TAXES,
-        Expense.CATEGORY_INSURANCE,
-        Expense.CATEGORY_OTHER,
+        Expense.categoryUtilities,
+        Expense.categoryRent,
+        Expense.categorySupplies,
+        Expense.categorySalary,
+        Expense.categoryMarketing,
+        Expense.categoryMaintenance,
+        Expense.categoryEquipment,
+        Expense.categoryTaxes,
+        Expense.categoryInsurance,
+        Expense.categoryOther,
       ];
     } catch (e) {
       logger.e('Error getting expense categories: $e');
-      return [Expense.CATEGORY_OTHER]; // Return at least one default category
+      return [Expense.categoryOther]; // Return at least one default category
     }
   }
 

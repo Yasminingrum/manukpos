@@ -154,26 +154,26 @@ class Expense {
   }
 
   // Expense category constants
-  static const String CATEGORY_UTILITIES = 'Utilities';
-  static const String CATEGORY_RENT = 'Rent';
-  static const String CATEGORY_SUPPLIES = 'Supplies';
-  static const String CATEGORY_SALARY = 'Salary';
-  static const String CATEGORY_MARKETING = 'Marketing';
-  static const String CATEGORY_MAINTENANCE = 'Maintenance';
-  static const String CATEGORY_EQUIPMENT = 'Equipment';
-  static const String CATEGORY_TAXES = 'Taxes';
-  static const String CATEGORY_INSURANCE = 'Insurance';
-  static const String CATEGORY_OTHER = 'Other';
+  static const String categoryUtilities = 'Utilities';
+  static const String categoryRent = 'Rent';
+  static const String categorySupplies = 'Supplies';
+  static const String categorySalary = 'Salary';
+  static const String categoryMarketing = 'Marketing';
+  static const String categoryMaintenance = 'Maintenance';
+  static const String categoryEquipment = 'Equipment';
+  static const String categoryTaxes = 'Taxes';
+  static const String categoryInsurance = 'Insurance';
+  static const String categoryOther = 'Other';
 
   // Status constants
-  static const String STATUS_COMPLETED = 'completed';
-  static const String STATUS_PENDING = 'pending';
-  static const String STATUS_CANCELLED = 'cancelled';
+  static const String statusCompleted = 'completed';
+  static const String statusPending = 'pending';
+  static const String statusCancelled = 'cancelled';
 
   // Payment method constants
-  static const String PAYMENT_CASH = 'cash';
-  static const String PAYMENT_TRANSFER = 'bank_transfer';
-  static const String PAYMENT_DEBIT = 'debit_card';
-  static const String PAYMENT_CREDIT = 'credit_card';
-  static const String PAYMENT_EWALLET = 'e_wallet';
+  static const String paymentCash = 'cash';
+  static const String paymentTransfer = 'bank_transfer';
+  static const String paymentDebit = 'debit_card';
+  static const String paymentCredit = 'credit_card';
+  static const String paymentEwallet = 'e_wallet';
 }

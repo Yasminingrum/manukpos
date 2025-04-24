@@ -122,13 +122,13 @@ class InventoryMovementChart extends StatelessWidget {
       if (dateOnly.isAfter(startDate.subtract(const Duration(days: 1))) && 
           dateOnly.isBefore(now.add(const Duration(days: 1)))) {
         
-        if (movement.type == InventoryMovement.TYPE_IN) {
+        if (movement.type == InventoryMovement.typeIn) {
           inData.update(
             dateOnly,
             (value) => value + movement.quantity,
             ifAbsent: () => movement.quantity,
           );
-        } else if (movement.type == InventoryMovement.TYPE_OUT) {
+        } else if (movement.type == InventoryMovement.typeOut) {
           outData.update(
             dateOnly,
             (value) => value + movement.quantity,

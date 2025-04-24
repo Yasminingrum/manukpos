@@ -134,13 +134,13 @@ class InventoryMovement {
   }
 
   // Constants for movement types
-  static const String TYPE_IN = 'in';
-  static const String TYPE_OUT = 'out';
+  static const String typeIn = 'in';
+  static const String typeOut = 'out';
   
   // Constants for reference types
-  static const String REF_PURCHASE = 'purchase';
-  static const String REF_SALE = 'sale';
-  static const String REF_RETURN = 'return';
-  static const String REF_ADJUSTMENT = 'adjustment';
-  static const String REF_TRANSFER = 'transfer';
+  static const String refPurchase = 'purchase';
+  static const String refSale = 'sale';
+  static const String refReturn = 'return';
+  static const String refAdjustment = 'adjustment';
+  static const String refTransfer = 'transfer';
 }
