@@ -9,7 +9,7 @@ import '../../services/product_service.dart';
 import '../../services/inventory_service.dart';
 import '../../utils/formatters.dart';
 import '../../utils/export_utils.dart';
-import '../../widgets/app_drawer.dart';
+import '../../widgets/custom_drawer.dart';
 import '../../services/database_service.dart';
 
 class InventoryReportScreen extends StatefulWidget {
@@ -424,7 +424,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
         ],
       ),
       drawer: const Drawer(
-        child: AppDrawer(),
+        child: CustomDrawer(),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

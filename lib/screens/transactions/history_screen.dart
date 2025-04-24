@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/transaction.dart';
 import '../../services/database_service.dart';
-import '../../widgets/app_drawer.dart';
+import '../../widgets/custom_drawer.dart';
 import '../../widgets/loading_indicator.dart';
 import 'transaction_detail_screen.dart';
 
@@ -249,7 +249,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
           ],
         ),
       ),
-      drawer: const AppDrawer(),
+      drawer: const CustomDrawer(),
       body: _isLoading
           ? const LoadingIndicator()
           : Column(

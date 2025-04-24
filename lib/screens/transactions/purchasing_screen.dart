@@ -1,469 +1,672 @@
+// screens/transactions/purchasing_screen.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../models/transaction.dart';
+import '../../models/supplier.dart';
+import '../../models/product.dart';
+// import '../../models/inventory_movement.dart';
 import '../../services/database_service.dart';
-import '../../widgets/app_drawer.dart';
-import '../../widgets/loading_indicator.dart';
-import 'transaction_detail_screen.dart';
+import '../../services/inventory_service.dart';
+// import '../../utils/formatters.dart';
+import '../../utils/validation_utils.dart';
+import '../../widgets/custom_app_bar.dart';
+// import '../../widgets/custom_button.dart';
+// import '../../widgets/confirmation_dialog.dart';
+import '../../widgets/loading_overlay.dart';
 
-class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+class PurchasingScreen extends StatefulWidget {
+  const PurchasingScreen({Key? key}) : super(key: key);
 
   @override
-  State<HistoryScreen> createState() => _HistoryScreenState();
+  State<PurchasingScreen> createState() => _PurchasingScreenState();
 }
 
-class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  final _searchController = TextEditingController();
-  DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
-  DateTime _endDate = DateTime.now();
+class _PurchasingScreenState extends State<PurchasingScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final DatabaseService _databaseService = DatabaseService();
+  final InventoryService _inventoryService = InventoryService();
+  final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
   
-  // We'll use this field to store all transactions directly to filtered lists
-  // List<Transaction> _allTransactions = [];
-  List<Transaction> _filteredTransactions = [];
-  List<Transaction> _salesTransactions = [];
-  List<Transaction> _purchaseTransactions = [];
-  bool _isLoading = true;
+  bool _isLoading = false;
+  List<Supplier> _suppliers = [];
+  List<Product> _products = [];
+  Supplier? _selectedSupplier;
   
-  String _selectedFilter = 'all'; // all, today, week, month, custom
-  String _searchQuery = '';
-
+  // Purchasing form data
+  final _referenceController = TextEditingController();
+  final _notesController = TextEditingController();
+  DateTime _purchaseDate = DateTime.now();
+  
+  // Item cart
+  List<PurchaseItem> _items = [];
+  double _totalAmount = 0;
+  
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_handleTabChange);
-    _loadTransactions();
+    _loadInitialData();
+    _generateReferenceNumber();
   }
-
+  
   @override
   void dispose() {
-    _tabController.removeListener(_handleTabChange);
-    _tabController.dispose();
-    _searchController.dispose();
+    _referenceController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
-
-  void _handleTabChange() {
-    if (_tabController.indexIsChanging) {
-      setState(() {
-        _applyFilters();
-      });
-    }
-  }
-
-  Future<void> _loadTransactions() async {
-    // Store the context and mounted state before the async gap
-    final currentContext = context;
-    final isMounted = mounted;
+  
+  Future<void> _loadInitialData() async {
+    setState(() => _isLoading = true);
     
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
-      final db = DatabaseService();
-      // Using rawQuery instead of missing getTransactions method
-      final transactionsData = await db.rawQuery(
-        'SELECT * FROM transactions WHERE transaction_date BETWEEN ? AND ?',
-        [_startDate.toIso8601String(), _endDate.toIso8601String()]
-      );
+      // Load suppliers
+      final supplierList = await _databaseService.query('suppliers');
+      _suppliers = supplierList.map((map) => Supplier.fromMap(map)).toList();
       
-      final transactions = transactionsData.map((data) => Transaction.fromMap(data)).toList();
-
-      // Check if widget is still mounted before updating state
-      if (isMounted) {
-        setState(() {
-          // Store directly in filtered lists instead of using _allTransactions
-          _salesTransactions = transactions.where((t) => t.type == 'sale').toList();
-          _purchaseTransactions = transactions.where((t) => t.type == 'purchase').toList();
-          _applyFilters();
-          _isLoading = false;
-        });
-      }
+      // Load products
+      final productList = await _databaseService.query('products', orderBy: 'name ASC');
+      _products = productList.map((map) => Product.fromMap(map)).toList();
     } catch (e) {
-      // Check if widget is still mounted before showing SnackBar and updating state
-      if (isMounted) {
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(content: Text('Error loading transactions: $e')),
-        );
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      _showSnackBar('Error loading data: ${e.toString()}');
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
-
-  void _applyFilters() {
-    List<Transaction> transactions;
-    
-    // Get transactions based on tab
-    if (_tabController.index == 0) {
-      transactions = List.from(_salesTransactions);
-    } else {
-      transactions = List.from(_purchaseTransactions);
+  
+  void _generateReferenceNumber() {
+    final now = DateTime.now();
+    final dateStr = DateFormat('yyyyMMdd').format(now);
+    final randomStr = now.millisecondsSinceEpoch.toString().substring(8);
+    _referenceController.text = 'PO-$dateStr-$randomStr';
+  }
+  
+  void _updateTotalAmount() {
+    double total = 0;
+    for (var item in _items) {
+      total += item.quantity * item.unitPrice;
     }
-    
-    // Apply date filter
-    if (_selectedFilter == 'today') {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      transactions = transactions.where((t) {
-        final transDate = DateTime.parse(t.transactionDate ?? DateTime.now().toIso8601String());
-        return transDate.isAfter(today.subtract(const Duration(seconds: 1))) && 
-               transDate.isBefore(today.add(const Duration(days: 1)));
-      }).toList();
-    } else if (_selectedFilter == 'week') {
-      final now = DateTime.now();
-      final weekStart = now.subtract(Duration(days: now.weekday - 1));
-      final startDate = DateTime(weekStart.year, weekStart.month, weekStart.day);
-      transactions = transactions.where((t) {
-        final transDate = DateTime.parse(t.transactionDate ?? DateTime.now().toIso8601String());
-        return transDate.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
-               transDate.isBefore(now.add(const Duration(days: 1)));
-      }).toList();
-    } else if (_selectedFilter == 'month') {
-      final now = DateTime.now();
-      final startDate = DateTime(now.year, now.month, 1);
-      transactions = transactions.where((t) {
-        final transDate = DateTime.parse(t.transactionDate ?? DateTime.now().toIso8601String());
-        return transDate.isAfter(startDate.subtract(const Duration(seconds: 1))) && 
-               transDate.isBefore(now.add(const Duration(days: 1)));
-      }).toList();
-    } else if (_selectedFilter == 'custom') {
-      transactions = transactions.where((t) {
-        final transDate = DateTime.parse(t.transactionDate ?? DateTime.now().toIso8601String());
-        return transDate.isAfter(_startDate.subtract(const Duration(seconds: 1))) && 
-               transDate.isBefore(_endDate.add(const Duration(days: 1)));
-      }).toList();
-    }
-    
-    // Apply search query
-    if (_searchQuery.isNotEmpty) {
-      transactions = transactions.where((t) => 
-        t.invoiceNumber.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-        (t.customerName?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-        (t.notes?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false)
-      ).toList();
-    }
-    
+    setState(() => _totalAmount = total);
+  }
+  
+  
+  void _removeItem(int index) {
     setState(() {
-      _filteredTransactions = transactions;
+      _items.removeAt(index);
     });
+    
+    _updateTotalAmount();
   }
-
-  void _updateDateRange(String filter) {
-    setState(() {
-      _selectedFilter = filter;
-      _applyFilters();
-    });
+  
+  void _editItem(int index) {
+    _showAddItemDialog(_items[index], index);
   }
-
-  Future<void> _selectDateRange() async {
-    final DateTimeRange? picked = await showDateRangePicker(
+  
+  void _showAddItemDialog([PurchaseItem? existingItem, int? editIndex]) {
+    showDialog(
       context: context,
-      initialDateRange: DateTimeRange(
-        start: _startDate,
-        end: _endDate,
-      ),
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      builder: (context) {
+        return AddPurchaseItemDialog(
+          products: _products,
+          onItemAdded: (item) {
+            if (editIndex != null) {
+              // Update existing item
+              setState(() {
+                _items[editIndex] = item;
+              });
+            } else {
+              // Add new item
+              setState(() {
+                _items.add(item);
+              });
+            }
+            _updateTotalAmount();
+          },
+          existingItem: existingItem,
+        );
+      },
     );
+  }
+  
+  Future<void> _savePurchase() async {
+    if (_formKey.currentState?.validate() != true) {
+      return;
+    }
     
-    if (picked != null) {
+    if (_items.isEmpty) {
+      _showSnackBar('Tambahkan setidaknya satu item!');
+      return;
+    }
+    
+    if (_selectedSupplier == null) {
+      _showSnackBar('Pilih supplier terlebih dahulu!');
+      return;
+    }
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      // Generate transaction data
+      final int branchId = 1; // Replace with actual branch ID from your app state
+      final int userId = 1; // Replace with actual user ID from your app state
+      
+      // Insert purchase header
+      final purchaseHeader = {
+        'reference_number': _referenceController.text,
+        'supplier_id': _selectedSupplier!.id,
+        'branch_id': branchId,
+        'user_id': userId,
+        'purchase_date': _purchaseDate.toIso8601String(),
+        'total_amount': _totalAmount,
+        'notes': _notesController.text,
+        'status': 'completed',
+        'payment_status': 'paid', // Or 'unpaid' based on your business flow
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      
+      final purchaseId = await _databaseService.insert('purchases', purchaseHeader);
+      
+      // Insert purchase items and update inventory
+      for (final item in _items) {
+        // Insert purchase item
+        final purchaseItem = {
+          'purchase_id': purchaseId,
+          'product_id': item.product.id,
+          'quantity': item.quantity,
+          'unit_price': item.unitPrice,
+          'total_price': item.quantity * item.unitPrice,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+        
+        await _databaseService.insert('purchase_items', purchaseItem);
+        
+        // Update inventory
+        await _inventoryService.addInventoryTransaction(
+          item.product.id,
+          branchId,
+          'in', // Transaction type: 'in' for purchases
+          item.quantity,
+          referenceType: 'purchase',
+          referenceId: purchaseId,
+          unitPrice: item.unitPrice,
+          notes: 'Stock update from purchase',
+          userId: userId,
+        );
+      }
+      
+      // Show success and clear form
+      _showSnackBar('Pembelian berhasil disimpan!');
+      
+      // Reset form
       setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
-        _selectedFilter = 'custom';
-        _applyFilters();
+        _items = [];
+        _totalAmount = 0;
+        _notesController.clear();
+        _generateReferenceNumber();
+        _selectedSupplier = null;
+        _purchaseDate = DateTime.now();
       });
+      
+    } catch (e) {
+      _showSnackBar('Error saving purchase: ${e.toString()}');
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
-
-  void _clearSearch() {
-    setState(() {
-      _searchController.clear();
-      _searchQuery = '';
-      _applyFilters();
-    });
+  
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transaction History'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Sales'),
-            Tab(text: 'Purchases'),
-          ],
-        ),
-      ),
-      drawer: const AppDrawer(),
-      body: _isLoading
-          ? const LoadingIndicator()
-          : Column(
-              children: [
-                _buildFilters(),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildTransactionList(),
-                      _buildTransactionList(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildFilters() {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(13), // approximately 0.05 opacity
-            blurRadius: 2,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextFormField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: _tabController.index == 0
-                  ? 'Search by invoice or customer'
-                  : 'Search by invoice or notes',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: _clearSearch,
-                    )
-                  : null,
-              border: const OutlineInputBorder(),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value;
-                _applyFilters();
-              });
+      key: _scaffoldKey,
+      appBar: CustomAppBar(
+        title: 'Pembelian Barang',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.pushNamed(context, '/transactions/history', arguments: 'purchase');
             },
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildFilterChip('All', 'all'),
-                const SizedBox(width: 8),
-                _buildFilterChip('Today', 'today'),
-                const SizedBox(width: 8),
-                _buildFilterChip('This Week', 'week'),
-                const SizedBox(width: 8),
-                _buildFilterChip('This Month', 'month'),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  _selectedFilter == 'custom'
-                      ? '${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}'
-                      : 'Custom Range',
-                  'custom',
-                  onSelected: (_) => _selectDateRange(),
-                ),
-              ],
-            ),
+            tooltip: 'Riwayat Pembelian',
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String value, {Function(bool)? onSelected}) {
-    return FilterChip(
-      label: Text(label),
-      selected: _selectedFilter == value,
-      onSelected: onSelected ?? (selected) {
-        if (selected) {
-          _updateDateRange(value);
-        }
-      },
-      selectedColor: Theme.of(context).primaryColor.withAlpha(51), // approximately 0.2 opacity
-      checkmarkColor: Theme.of(context).primaryColor,
-    );
-  }
-
-  Widget _buildTransactionList() {
-    if (_filteredTransactions.isEmpty) {
-      return const Center(
-        child: Text('No transactions found'),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: _filteredTransactions.length,
-      itemBuilder: (context, index) {
-        final transaction = _filteredTransactions[index];
-        return _buildTransactionItem(transaction);
-      },
-    );
-  }
-
-  Widget _buildTransactionItem(Transaction transaction) {
-    final isInvoice = transaction.type == 'sale';
-    final formattedDate = DateFormat('dd MMM yyyy, HH:mm').format(
-      DateTime.parse(transaction.transactionDate ?? DateTime.now().toIso8601String()),
-    );
-    
-    // Using NumberFormat instead of missing currencyFormat
-    final currencyFormatter = NumberFormat.currency(
-      symbol: 'Rp ',
-      decimalDigits: 0,
-      locale: 'id_ID',
-    );
-    
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => TransactionDetailScreen(
-                transactionId: transaction.id ?? 0,
-              ),
-            ),
-          );
-        },
-        child: Padding(
+      body: LoadingOverlay(
+        isLoading: _isLoading,
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      isInvoice ? transaction.invoiceNumber : transaction.invoiceNumber,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(transaction.status),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      transaction.status,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Purchase header section
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          isInvoice
-                              ? transaction.customerName ?? 'Walk-in Customer'
-                              : transaction.notes ?? 'No supplier info',
-                          style: const TextStyle(
-                            fontSize: 14,
+                        const Text(
+                          'Informasi Pembelian',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          formattedDate,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                        const SizedBox(height: 16),
+                        
+                        // Reference number
+                        TextFormField(
+                          controller: _referenceController,
+                          decoration: const InputDecoration(
+                            labelText: 'Nomor Referensi',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) => ValidationUtils.validateRequired(
+                            value,
+                            'Nomor referensi wajib diisi',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Supplier selection
+                        DropdownButtonFormField<Supplier>(
+                          value: _selectedSupplier,
+                          decoration: const InputDecoration(
+                            labelText: 'Supplier',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: _suppliers.map((supplier) {
+                            return DropdownMenuItem<Supplier>(
+                              value: supplier,
+                              child: Text(supplier.name),
+                            );
+                          }).toList(),
+                          onChanged: (Supplier? value) {
+                            setState(() {
+                              _selectedSupplier = value;
+                            });
+                          },
+                          validator: (value) => value == null ? 'Pilih supplier' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Purchase date
+                        InkWell(
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate: _purchaseDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime.now().add(const Duration(days: 1)),
+                            );
+                            
+                            if (date != null) {
+                              setState(() {
+                                _purchaseDate = date;
+                              });
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Tanggal Pembelian',
+                              border: OutlineInputBorder(),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(DateFormat('dd MMMM yyyy').format(_purchaseDate)),
+                                const Icon(Icons.calendar_today),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Notes
+                        TextFormField(
+                          controller: _notesController,
+                          decoration: const InputDecoration(
+                            labelText: 'Catatan',
+                            border: OutlineInputBorder(),
+                          ),
+                          maxLines: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Purchase items section
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Daftar Item',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.add),
+                              label: const Text('Tambah Item'),
+                              onPressed: () => _showAddItemDialog(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Items list
+                        if (_items.isEmpty)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Text(
+                                'Belum ada item. Tambahkan item untuk mulai.',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _items.length,
+                            separatorBuilder: (context, index) => const Divider(),
+                            itemBuilder: (context, index) {
+                              final item = _items[index];
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(item.product.name),
+                                subtitle: Text(
+                                  '${item.quantity} x ${currencyFormatter.format(item.unitPrice)}',
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      currencyFormatter.format(item.quantity * item.unitPrice),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit),
+                                      onPressed: () => _editItem(index),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete),
+                                      onPressed: () => _removeItem(index),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        
+                        const Divider(thickness: 1),
+                        
+                        // Total
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Total',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                currencyFormatter.format(_totalAmount),
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        currencyFormatter.format(transaction.grandTotal),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                ),
+                const SizedBox(height: 16),
+                
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.cancel),
+                        label: const Text('Batal'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey,
                         ),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Konfirmasi Batal'),
+                              content: const Text('Apakah Anda yakin ingin membatalkan pembelian ini? Semua data yang telah diinput akan hilang.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Tidak'),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context); // Close dialog
+                                    Navigator.pop(context); // Close screen
+                                  },
+                                  child: const Text('Ya, Batalkan'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _getPaymentStatusColor(transaction.paymentStatus),
-                          borderRadius: BorderRadius.circular(4),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.save),
+                        label: const Text('Simpan'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor,
                         ),
-                        child: Text(
-                          transaction.paymentStatus,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                          ),
-                        ),
+                        onPressed: _savePurchase,
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'completed':
-        return Colors.green;
-      case 'draft':
-        return Colors.orange;
-      case 'cancelled':
-        return Colors.red;
-      case 'pending':
-        return Colors.blue;
-      default:
-        return Colors.grey;
+// Helper class for purchase items
+class PurchaseItem {
+  final Product product;
+  final double quantity;
+  final double unitPrice;
+  
+  PurchaseItem({
+    required this.product,
+    required this.quantity,
+    required this.unitPrice,
+  });
+}
+
+// Dialog for adding purchase items
+class AddPurchaseItemDialog extends StatefulWidget {
+  final List<Product> products;
+  final Function(PurchaseItem) onItemAdded;
+  final PurchaseItem? existingItem;
+  
+  const AddPurchaseItemDialog({
+    Key? key,
+    required this.products,
+    required this.onItemAdded,
+    this.existingItem,
+  }) : super(key: key);
+  
+  @override
+  State<AddPurchaseItemDialog> createState() => _AddPurchaseItemDialogState();
+}
+
+class _AddPurchaseItemDialogState extends State<AddPurchaseItemDialog> {
+  final _formKey = GlobalKey<FormState>();
+  Product? _selectedProduct;
+  final _quantityController = TextEditingController();
+  final _priceController = TextEditingController();
+  
+  @override
+  void initState() {
+    super.initState();
+    
+    // Initialize with existing item if editing
+    if (widget.existingItem != null) {
+      _selectedProduct = widget.existingItem!.product;
+      _quantityController.text = widget.existingItem!.quantity.toString();
+      _priceController.text = widget.existingItem!.unitPrice.toString();
     }
   }
-
-  Color _getPaymentStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'paid':
-        return Colors.green;
-      case 'unpaid':
-        return Colors.red;
-      case 'partial':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
+  
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _priceController.dispose();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.existingItem != null ? 'Edit Item' : 'Tambah Item'),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Product selection
+              DropdownButtonFormField<Product>(
+                value: _selectedProduct,
+                decoration: const InputDecoration(
+                  labelText: 'Produk',
+                  border: OutlineInputBorder(),
+                ),
+                items: widget.products.map((product) {
+                  return DropdownMenuItem<Product>(
+                    value: product,
+                    child: Text(product.name),
+                  );
+                }).toList(),
+                onChanged: (Product? value) {
+                  setState(() {
+                    _selectedProduct = value;
+                    if (value != null && _priceController.text.isEmpty) {
+                      _priceController.text = value.buyingPrice.toString();
+                    }
+                  });
+                },
+                validator: (value) => value == null ? 'Pilih produk' : null,
+              ),
+              const SizedBox(height: 16),
+              
+              // Quantity
+              TextFormField(
+                controller: _quantityController,
+                decoration: const InputDecoration(
+                  labelText: 'Jumlah',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Jumlah wajib diisi';
+                  }
+                  final double? qty = double.tryParse(value);
+                  if (qty == null || qty <= 0) {
+                    return 'Jumlah harus lebih dari 0';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              // Unit price
+              TextFormField(
+                controller: _priceController,
+                decoration: const InputDecoration(
+                  labelText: 'Harga Satuan',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Harga satuan wajib diisi';
+                  }
+                  final double? price = double.tryParse(value);
+                  if (price == null || price <= 0) {
+                    return 'Harga harus lebih dari 0';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (_formKey.currentState?.validate() == true) {
+              final item = PurchaseItem(
+                product: _selectedProduct!,
+                quantity: double.parse(_quantityController.text),
+                unitPrice: double.parse(_priceController.text),
+              );
+              
+              widget.onItemAdded(item);
+              Navigator.pop(context);
+            }
+          },
+          child: Text(widget.existingItem != null ? 'Update' : 'Tambah'),
+        ),
+      ],
+    );
   }
 }

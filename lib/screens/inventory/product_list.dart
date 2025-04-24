@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/category.dart';
 import '../../services/database_service.dart';
 import '../../widgets/loading_overlay.dart';
-import '../../widgets/app_drawer.dart';
+import '../../widgets/custom_drawer.dart';
 import '../../config/routes.dart';
 
 class ProductListScreen extends StatefulWidget {
@@ -627,7 +627,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ),
         ],
       ),
-      drawer: const AppDrawer(),
+      drawer: const CustomDrawer(),
       body: LoadingOverlay(
         isLoading: _isLoading,
         child: Column(

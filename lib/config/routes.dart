@@ -1,5 +1,6 @@
 // config/routes.dart
 import 'package:flutter/material.dart';
+import 'package:manukpos/screens/transactions/purchasing_screen.dart';
 
 // Auth Screens
 import '../screens/auth/login_screen.dart';
@@ -105,7 +106,7 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const PosScreen());
       
       case purchasing:
-        return _errorRoute();
+        return MaterialPageRoute(builder: (_) => const PurchasingScreen());
       
       case transactionHistory:
         return MaterialPageRoute(builder: (_) => const HistoryScreen());
