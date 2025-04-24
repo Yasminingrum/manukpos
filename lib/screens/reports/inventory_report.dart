@@ -1057,16 +1057,4 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
     );
   }
 
-  Color _getStockStatusColor(String status) {
-    switch (status) {
-      case 'Out of Stock':
-        return Colors.red;
-      case 'Low Stock':
-        return Colors.orange;
-      case 'In Stock':
-        return Colors.green;
-      default:
-        return Colors.blue;
-    }
-  }
 }

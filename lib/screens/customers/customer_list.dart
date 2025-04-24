@@ -144,9 +144,9 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                               ),
                               title: Text(customer.name),
                               subtitle: Text(
-                                  '${customer.phone ?? 'No phone'} • ${customer.customerType ?? 'Regular'}'),
+                                  '${customer.phone} • ${customer.customerType}'),
                               trailing: Text(
-                                  'Saldo: Rp ${customer.currentBalance != null ? customer.currentBalance.toStringAsFixed(2) : '0.00'}'),
+                                  'Saldo: Rp ${customer.currentBalance.toStringAsFixed(2)}'),
                               onTap: () async {
                                 final result = await Navigator.push(
                                   context,

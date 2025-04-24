@@ -289,20 +289,6 @@ class CashFlowChart extends StatelessWidget {
     return 10 * magnitude;
   }
 
-  String _formatDateForTooltip(DateTime date, ChartIntervalType intervalType) {
-    switch (intervalType) {
-      case ChartIntervalType.day:
-        return DateFormat('d MMM yyyy').format(date);
-      case ChartIntervalType.week:
-        final firstDayOfWeek = date;
-        final lastDayOfWeek = date.add(const Duration(days: 6));
-        return '${DateFormat('d MMM').format(firstDayOfWeek)} - ${DateFormat('d MMM yyyy').format(lastDayOfWeek)}';
-      case ChartIntervalType.month:
-        return DateFormat('MMMM yyyy').format(date);
-      case ChartIntervalType.year:
-        return DateFormat('yyyy').format(date);
-    }
-  }
 
   int _getWeekOfYear(DateTime date) {
     // Calculate week of year (1-based)

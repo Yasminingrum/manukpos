@@ -77,17 +77,6 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
     }
     
     _taxIdController.text = customer.taxId ?? '';
-    
-    // Handle numeric values with null checks
-    var creditLimit = customer.creditLimit;
-    _creditLimitController.text = creditLimit != null ? creditLimit.toString() : '0.0';
-    
-    var currentBalance = customer.currentBalance;
-    _currentBalanceController.text = currentBalance != null ? currentBalance.toString() : '0.0';
-    
-    _notesController.text = customer.notes ?? '';
-    _customerType = customer.customerType ?? 'regular';
-    _isActive = customer.isActive == 1;
   }
 
   Future<void> _selectDate(BuildContext context) async {

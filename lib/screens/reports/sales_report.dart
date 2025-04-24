@@ -255,12 +255,6 @@ class _SalesReportState extends State<SalesReport> with SingleTickerProviderStat
     _loadSalesData();
   }
 
-  void _exportReport() {
-    // Implement export functionality (CSV, PDF, etc)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Exporting sales report...')),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {

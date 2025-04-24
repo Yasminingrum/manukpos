@@ -302,11 +302,11 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(transaction.status ?? 'completed'),
+                    color: _getStatusColor(transaction.status),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    (transaction.status ?? 'completed').toUpperCase(),
+                    transaction.status.toUpperCase(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -403,11 +403,11 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _getPaymentStatusColor(transaction.paymentStatus ?? 'unpaid'),
+                      color: _getPaymentStatusColor(transaction.paymentStatus),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      (transaction.paymentStatus ?? 'unpaid').toUpperCase(),
+                      transaction.paymentStatus.toUpperCase(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,

@@ -211,7 +211,7 @@ class _CustomerDetailScreenState extends material.State<CustomerDetailScreen> wi
         _buildInfoRow('Name', customer.name),
         _buildInfoRow('Phone', customer.phone ?? 'Not Available'),
         _buildInfoRow('Email', customer.email ?? 'Not Available'),
-        _buildInfoRow('Customer Type', customer.customerType ?? 'Regular'),
+        _buildInfoRow('Customer Type', customer.customerType),
         _buildInfoRow('Join Date', customer.joinDate ?? 'Not Available'),
       ]
     ));
@@ -224,17 +224,13 @@ class _CustomerDetailScreenState extends material.State<CustomerDetailScreen> wi
     final currentBalance = customer.currentBalance;
     financialInfoRows.add(_buildInfoRow(
       'Current Balance',
-      currentBalance != null 
-          ? 'Rp ${currentBalance.toStringAsFixed(2)}'
-          : 'Rp 0.00',
+      'Rp ${currentBalance.toStringAsFixed(2)}',
     ));
     
     final creditLimit = customer.creditLimit;
     financialInfoRows.add(_buildInfoRow(
       'Credit Limit',
-      creditLimit != null
-          ? 'Rp ${creditLimit.toStringAsFixed(2)}'
-          : 'Rp 0.00',
+      'Rp ${creditLimit.toStringAsFixed(2)}',
     ));
     
     final taxId = customer.taxId;

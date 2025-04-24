@@ -64,7 +64,9 @@ class _ExpenseReportScreenState extends State<ExpenseReportScreen> {
         _categories = categories;
       });
     } catch (e) {
-      print('Error loading categories: $e');
+      setState(() {
+        _errorMessage = 'Error loading categories: $e';
+      });
     }
   }
   
@@ -123,7 +125,9 @@ class _ExpenseReportScreenState extends State<ExpenseReportScreen> {
         _expenseSummary = summary;
       });
     } catch (e) {
-      print('Error loading expense summary: $e');
+      setState(() {
+        _errorMessage = 'Error loading expense summary: $e';
+      });
     }
   }
   
@@ -145,10 +149,6 @@ class _ExpenseReportScreenState extends State<ExpenseReportScreen> {
     _loadExpenses(refresh: true);
   }
   
-  void _exportReport() async {
-    // Additional export functionality could be implemented here
-    // Currently handled by the ExportButton widget
-  }
   
   @override
   Widget build(BuildContext context) {
