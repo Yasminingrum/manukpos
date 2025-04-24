@@ -113,9 +113,9 @@ class ImageUtils {
     
     // Fill the image with the background color
     img.fill(image, color: img.ColorRgb8(
-      backgroundColor.red.toInt(), 
-      backgroundColor.green.toInt(), 
-      backgroundColor.blue.toInt()
+      backgroundColor.r.toInt(), 
+      backgroundColor.g.toInt(),
+      backgroundColor.b.toInt()
     ));
         
     // Encode the image to PNG

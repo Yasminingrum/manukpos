@@ -201,6 +201,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     
                     const SizedBox(height: 32),
+
+                    //register Link
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Belum memiliki akun?'),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, AppRouter.register);
+                          },
+                          child: const Text('Daftar Sekarang'),
+                        ),
+                      ],
+                    ),
                     
                     // Version Information
                     Text(
