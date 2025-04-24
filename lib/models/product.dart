@@ -183,4 +183,7 @@ class Product {
   Map<String, dynamic> toMap() {
     return toJson();
   }
+
+  
+
 }

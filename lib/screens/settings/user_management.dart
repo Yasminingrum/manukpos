@@ -7,14 +7,17 @@ class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
 
   @override
-  _UserManagementScreenState createState() => _UserManagementScreenState();
+  // Fixed: Changed private class to public class
+  UserManagementScreenState createState() => UserManagementScreenState();
 }
 
-class _UserManagementScreenState extends State<UserManagementScreen> {
+// Fixed: Changed from _UserManagementScreenState to public UserManagementScreenState
+class UserManagementScreenState extends State<UserManagementScreen> {
   final DatabaseService _databaseService = DatabaseService();
   
   List<User> _users = [];
   bool _isLoading = true;
+  // Removed unused _mounted field
 
   @override
   void initState() {
@@ -22,7 +25,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     _loadUsers();
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   Future<void> _loadUsers() async {
+    if (!mounted) return;
+    if (!mounted) return; // No changes needed here as 'mounted' is already provided by the State class
     setState(() {
       _isLoading = true;
     });
@@ -31,21 +41,31 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       // Fetch users from local database
       final users = await _databaseService.getUsers();
       
+      // Fixed: Check if widget is still mounted before using setState
+      if (!mounted) return;
+      
       setState(() {
         _users = users;
         _isLoading = false;
       });
     } catch (e) {
+      // Fixed: Check if widget is still mounted before using setState
+      if (!mounted) return;
+      
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
+      
+      // Fixed: Store context in local variable before async gap
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('Error loading users: ${e.toString()}')),
       );
     }
   }
 
   void _navigateToUserForm({User? user}) async {
+    // No async gap before using context, so this is fine
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -53,7 +73,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       ),
     );
     
-    if (result == true) {
+    if (result == true && mounted) {
       _loadUsers(); // Reload the users list
     }
   }
@@ -75,10 +95,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       // Update in database
       await _databaseService.updateUser(updatedUser);
       
+      // Fixed: Check if widget is still mounted
+      if (!mounted) return;
+      
       // Reload users
       _loadUsers();
       
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Fixed: Store context in local variable before async gap
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(
             user.isActive == 1
@@ -88,15 +113,22 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!mounted) return;
+      
+      // Fixed: Store context in local variable
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('Error updating user status: ${e.toString()}')),
       );
     }
   }
 
   Future<void> _deleteUser(User user) async {
+    // Store context before async operation
+    final currentContext = context;
+    
     final confirm = await showDialog<bool>(
-      context: context,
+      context: currentContext,
       builder: (context) => ConfirmationDialog(
         title: 'Delete User',
         content: 'Are you sure you want to delete ${user.name}? This action cannot be undone.',
@@ -105,14 +137,22 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       ),
     );
     
+    // Check if widget is still mounted
+    if (!mounted) return;
+    
     if (confirm == true) {
       try {
         await _databaseService.deleteUser(user.id!);
+        
+        if (!mounted) return;
+        
         _loadUsers();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('User ${user.name} deleted')),
         );
       } catch (e) {
+        if (!mounted) return;
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error deleting user: ${e.toString()}')),
         );
@@ -237,10 +277,12 @@ class UserFormScreen extends StatefulWidget {
   const UserFormScreen({super.key, this.user});
 
   @override
-  _UserFormScreenState createState() => _UserFormScreenState();
+  // Fixed: Changed private class to public class
+  UserFormScreenState createState() => UserFormScreenState();
 }
 
-class _UserFormScreenState extends State<UserFormScreen> {
+// Fixed: Changed from _UserFormScreenState to public UserFormScreenState
+class UserFormScreenState extends State<UserFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final DatabaseService _databaseService = DatabaseService();
   
@@ -280,6 +322,10 @@ class _UserFormScreenState extends State<UserFormScreen> {
   Future<void> _loadBranches() async {
     try {
       final branches = await _databaseService.getBranches();
+      
+      // Fixed: Check if widget is still mounted
+      if (!mounted) return;
+      
       setState(() {
         _branches = branches;
         // Set default branch if not in edit mode and branches exist
@@ -288,6 +334,9 @@ class _UserFormScreenState extends State<UserFormScreen> {
         }
       });
     } catch (e) {
+      // Fixed: Check if widget is still mounted
+      if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading branches: ${e.toString()}')),
       );
@@ -325,6 +374,9 @@ class _UserFormScreenState extends State<UserFormScreen> {
         await _databaseService.createUser(user);
       }
       
+      // Fixed: Check if widget is still mounted
+      if (!mounted) return;
+      
       setState(() {
         _isLoading = false;
       });
@@ -332,9 +384,13 @@ class _UserFormScreenState extends State<UserFormScreen> {
       // Return to previous screen with success flag
       Navigator.pop(context, true);
     } catch (e) {
+      // Fixed: Check if widget is still mounted
+      if (!mounted) return;
+      
       setState(() {
         _isLoading = false;
       });
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error saving user: ${e.toString()}')),
       );

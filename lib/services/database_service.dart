@@ -27,6 +27,10 @@ class DatabaseService {
     
     // Initialize the database if not available
     _database = await _initializeDatabase();
+    
+    // Tambahkan kolom sync_status ke tabel products jika belum ada
+    await addSyncStatusToProductsTable();
+    
     return _database!;
   }
   
@@ -39,10 +43,32 @@ class DatabaseService {
     
     return await openDatabase(
       path,
-      version: AppConstants.dbVersion,
+      version: 3, // Tingkatkan versi database ke 3
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
+  }
+  
+  // Metode untuk menambahkan kolom sync_status ke tabel products
+  Future<void> addSyncStatusToProductsTable() async {
+    final db = await database;
+    
+    try {
+      // Periksa apakah kolom sync_status sudah ada di tabel products
+      final List<Map<String, dynamic>> columns = await db.rawQuery("PRAGMA table_info(products)");
+      final bool syncStatusExists = columns.any((column) => column['name'] == 'sync_status');
+      
+      // Jika kolom belum ada, tambahkan
+      if (!syncStatusExists) {
+        logger.i('Menambahkan kolom sync_status ke tabel products');
+        await db.execute("ALTER TABLE products ADD COLUMN sync_status TEXT DEFAULT 'pending'");
+        logger.i('Kolom sync_status berhasil ditambahkan');
+      } else {
+        logger.i('Kolom sync_status sudah ada di tabel products');
+      }
+    } catch (e) {
+      logger.e('Error saat menambahkan kolom sync_status: $e');
+    }
   }
   
   // Create database tables
@@ -101,7 +127,7 @@ class DatabaseService {
       FOREIGN KEY (parent_id) REFERENCES categories(id)
     )''');
     
-    // Create products table
+    // Create products table (dengan kolom sync_status)
     await db.execute('''
     CREATE TABLE products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,6 +150,7 @@ class DatabaseService {
       allow_fractions INTEGER DEFAULT 0,
       image_url TEXT,
       tags TEXT,
+      sync_status TEXT DEFAULT 'pending',
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (category_id) REFERENCES categories(id)
@@ -258,6 +285,24 @@ class DatabaseService {
       FOREIGN KEY (transaction_id) REFERENCES transactions(id),
       FOREIGN KEY (user_id) REFERENCES users(id)
     )''');
+
+        // Create suppliers table
+    await db.execute('''
+    CREATE TABLE suppliers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT UNIQUE,
+      name TEXT NOT NULL,
+      contact_person TEXT,
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      tax_id TEXT,
+      payment_terms INTEGER,
+      is_active INTEGER DEFAULT 1,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+    )''');
     
     // Create sync_log table
     await db.execute('''
@@ -294,6 +339,40 @@ class DatabaseService {
       currency_symbol TEXT DEFAULT 'Rp',
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+    )''');
+
+        // Create stock_opname table
+    await db.execute('''
+    CREATE TABLE stock_opname (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      branch_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      opname_date TEXT NOT NULL,
+      reference_number TEXT NOT NULL,
+      notes TEXT,
+      status TEXT NOT NULL,
+      completed_at TEXT,
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (branch_id) REFERENCES branches(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )''');
+
+    // Create stock_opname_items table
+    await db.execute('''
+    CREATE TABLE stock_opname_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      stock_opname_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      system_stock REAL NOT NULL,
+      physical_stock REAL NOT NULL,
+      difference REAL NOT NULL,
+      adjustment_value REAL,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (stock_opname_id) REFERENCES stock_opname(id),
+      FOREIGN KEY (product_id) REFERENCES products(id)
     )''');
     
     await batch.commit();
@@ -360,7 +439,6 @@ class DatabaseService {
     
     // Implement migration logic for different versions
     if (oldVersion < 2) {
-
       // Check if business_profile table exists
       var tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='business_profile'");
       if (tables.isEmpty) {
@@ -397,6 +475,20 @@ class DatabaseService {
           'created_at': DateTime.now().toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         });
+      }
+    }
+    
+    // Tambahkan kondisi untuk versi 3
+    if (oldVersion < 3) {
+      // Periksa apakah kolom sync_status sudah ada di tabel products
+      final List<Map<String, dynamic>> columns = await db.rawQuery("PRAGMA table_info(products)");
+      final bool syncStatusExists = columns.any((column) => column['name'] == 'sync_status');
+      
+      // Jika kolom belum ada, tambahkan
+      if (!syncStatusExists) {
+        logger.i('Menambahkan kolom sync_status ke tabel products sebagai bagian dari upgrade ke versi 3');
+        await db.execute("ALTER TABLE products ADD COLUMN sync_status TEXT DEFAULT 'pending'");
+        logger.i('Kolom sync_status berhasil ditambahkan ke tabel products');
       }
     }
   }

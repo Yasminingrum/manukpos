@@ -14,7 +14,7 @@ import '../../widgets/custom_app_bar.dart';
 import '../../widgets/loading_overlay.dart';
 
 class PurchasingScreen extends StatefulWidget {
-  const PurchasingScreen({Key? key}) : super(key: key);
+  const PurchasingScreen({super.key});
 
   @override
   State<PurchasingScreen> createState() => _PurchasingScreenState();
@@ -532,11 +532,11 @@ class AddPurchaseItemDialog extends StatefulWidget {
   final PurchaseItem? existingItem;
   
   const AddPurchaseItemDialog({
-    Key? key,
+    super.key,
     required this.products,
     required this.onItemAdded,
     this.existingItem,
-  }) : super(key: key);
+  });
   
   @override
   State<AddPurchaseItemDialog> createState() => _AddPurchaseItemDialogState();
