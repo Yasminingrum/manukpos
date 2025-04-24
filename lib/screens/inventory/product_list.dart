@@ -4,6 +4,7 @@ import '../../models/category.dart';
 import '../../services/database_service.dart';
 import '../../widgets/loading_overlay.dart';
 import '../../widgets/app_drawer.dart';
+import '../../config/routes.dart';
 
 class ProductListScreen extends StatefulWidget {
   static const routeName = '/products';
@@ -585,7 +586,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   onPressed: () async {
                     final result = await Navigator.pushNamed(
                       context,
-                      '/product/edit',
+                      AppRouter.productForm,
                       arguments: product['id'],
                     );
                     
@@ -782,7 +783,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final result = await Navigator.pushNamed(context, '/product/add');
+          final result = await Navigator.pushNamed(context, AppRouter.productForm);
           if (result == true) {
             _loadProducts();
           }
