@@ -143,7 +143,7 @@ class ReportsModule {
           // Check if services are valid before calling their methods
           if (transactionService != null) {
             await transactionService.getInventoryItems(
-              branchId: AppConstants.branchDataKey,
+              branchId: int.tryParse(AppConstants.branchDataKey),
               limit: 10
             );
           }

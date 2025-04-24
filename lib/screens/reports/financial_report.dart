@@ -646,7 +646,7 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
                                   ),
                                 ),
                                 FractionallySizedBox(
-                                  widthFactor: percentage,
+                                  widthFactor: percentage.toDouble(),
                                   child: Container(
                                     height: 20,
                                     decoration: BoxDecoration(

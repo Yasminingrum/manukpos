@@ -818,17 +818,11 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
     );
   }
 
-  Widget _buildCategoryValueChart() {
-    if (_categoryData.isEmpty) {
-      return const Center(child: Text('No category data available'));
+  Widget _buildMovementChart() {
+    if (_movementData.isEmpty) {
+      return const Center(child: Text('No movement data available'));
     }
-    
-    // Calculate total value for percentages
-    double totalValue = 0;
-    for (var item in _categoryData) {
-      totalValue += (item['value'] as double);
-    }
-    
+
     return Card(
       elevation: 2,
       child: Padding(
@@ -837,153 +831,31 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
           children: [
             Expanded(
               child: ListView.builder(
-                itemCount: _categoryData.length,
+                itemCount: _movementData.length,
                 itemBuilder: (context, index) {
                   final item = _movementData[index];
                   final date = item['display_date'] as String;
                   final inQty = item['in'] as double;
                   final outQty = item['out'] as double;
-                  
-                  // Find the max value for scaling
-                  double maxValue = 0;
-                  for (var data in _movementData) {
-                    final inValue = data['in'] as double;
-                    final outValue = data['out'] as double;
-                    maxValue = [maxValue, inValue, outValue].reduce((curr, next) => curr > next ? curr : next);
-                  }
-                  
-                  // Calculate percentages for bar width
-                  final inPercentage = maxValue > 0 ? inQty / maxValue : 0;
-                  final outPercentage = maxValue > 0 ? outQty / maxValue : 0;
-                  
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(date, style: const TextStyle(fontSize: 12)),
-                        Row(
-                          children: [
-                            SizedBox(
-                              width: 40,
-                              child: Text(
-                                inQty.toStringAsFixed(1),
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(fontSize: 10, color: Colors.green),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Stack(
-                                children: [
-                                  Container(
-                                    height: 16,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  ),
-                                  FractionallySizedBox(
-                                    widthFactor: inPercentage,
-                                    child: Container(
-                                      height: 16,
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.withOpacity(0.7),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            SizedBox(
-                              width: 40,
-                              child: Text(
-                                outQty.toStringAsFixed(1),
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(fontSize: 10, color: Colors.red),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Stack(
-                                children: [
-                                  Container(
-                                    height: 16,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  ),
-                                  FractionallySizedBox(
-                                    widthFactor: outPercentage,
-                                    child: Container(
-                                      height: 16,
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.withOpacity(0.7),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Divider(height: 8),
-                      ],
-                    ),
-                  );categoryData[index];
-                  final category = item['category'] as String;
-                  final value = item['value'] as double;
-                  final count = item['count'] as int;
-                  final percentage = totalValue > 0 ? (value / totalValue * 100) : 0.0;
-                  
+
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4.0),
                     child: Row(
                       children: [
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: Colors.primaries[index % Colors.primaries.length],
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
                         Expanded(
                           flex: 2,
+                          child: Text(date),
+                        ),
+                        Expanded(
                           child: Text(
-                            category,
-                            overflow: TextOverflow.ellipsis,
+                            '+${inQty.toStringAsFixed(1)}',
+                            style: const TextStyle(color: Colors.green),
                           ),
                         ),
                         Expanded(
                           child: Text(
-                            '($count items)',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            Formatters.formatCurrency(value),
-                            textAlign: TextAlign.right,
-                          ),
-                        ),
-                        SizedBox(
-                          width: 50,
-                          child: Text(
-                            '${percentage.toStringAsFixed(1)}%',
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(fontSize: 12),
+                            '-${outQty.toStringAsFixed(1)}',
+                            style: const TextStyle(color: Colors.red),
                           ),
                         ),
                       ],
@@ -995,6 +867,135 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCategoryValueChart() {
+      if (_categoryData.isEmpty) {
+        return const Center(child: Text('No category data available'));
+      }
+      
+      // Calculate total value for percentages
+      double totalValue = 0;
+      for (var item in _categoryData) {
+        totalValue += (item['value'] as double);
+      }
+      
+      return Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _categoryData.length,
+                  itemBuilder: (context, index) {
+                    final item = _categoryData[index];
+                    final category = item['category'] as String;
+                    final value = item['value'] as double;
+                    final count = item['count'] as int;
+                    final percentage = totalValue > 0 ? (value / totalValue * 100) : 0.0;
+                    
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Colors.primaries[index % Colors.primaries.length],
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              category,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '($count items)',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              Formatters.formatCurrency(value),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 50,
+                            child: Text(
+                              '${percentage.toStringAsFixed(1)}%',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+  Widget _buildInventoryTab() {
+    if (_inventoryItems.isEmpty) {
+      return const Center(
+        child: Text('No inventory data available'),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: _inventoryItems.length,
+      itemBuilder: (context, index) {
+        final item = _inventoryItems[index];
+        final product = _products.firstWhere(
+          (p) => p.id == item.productId,
+          orElse: () => Product(
+            id: 0,
+            sku: '',
+            name: 'Unknown',
+            categoryId: 0,
+            category: 'Unknown',
+            buyingPrice: 0,
+            sellingPrice: 0,
+            createdAt: '',
+            updatedAt: '',
+          ),
+        );
+
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: ListTile(
+            title: Text(product.name),
+            subtitle: Text('SKU: ${product.sku} | Category: ${product.category}'),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Qty: ${item.quantity}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  'Min: ${item.minStockLevel}',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
