@@ -43,7 +43,7 @@ class DatabaseService {
     
     return await openDatabase(
       path,
-      version: 3, // Tingkatkan versi database ke 3
+      version: 4, // Tingkatkan versi database ke 4
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -260,6 +260,27 @@ class DatabaseService {
       FOREIGN KEY (transaction_id) REFERENCES transactions(id),
       FOREIGN KEY (product_id) REFERENCES products(id)
     )''');
+
+    // Create inventory_transactions table
+    await db.execute('''
+    CREATE TABLE inventory_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_date TEXT NOT NULL,
+      reference_id INTEGER,
+      reference_type TEXT,
+      product_id INTEGER NOT NULL,
+      branch_id INTEGER NOT NULL,
+      transaction_type TEXT NOT NULL,
+      quantity REAL NOT NULL,
+      unit_price REAL,
+      notes TEXT,
+      user_id INTEGER,
+      created_at TEXT NOT NULL,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (product_id) REFERENCES products(id),
+      FOREIGN KEY (branch_id) REFERENCES branches(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )''');
     
     // Create payments table
     await db.execute('''
@@ -286,7 +307,7 @@ class DatabaseService {
       FOREIGN KEY (user_id) REFERENCES users(id)
     )''');
 
-        // Create suppliers table
+    // Create suppliers table
     await db.execute('''
     CREATE TABLE suppliers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -341,7 +362,7 @@ class DatabaseService {
       updated_at TEXT DEFAULT (datetime('now', 'localtime'))
     )''');
 
-        // Create stock_opname table
+    // Create stock_opname table
     await db.execute('''
     CREATE TABLE stock_opname (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -372,6 +393,41 @@ class DatabaseService {
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (stock_opname_id) REFERENCES stock_opname(id),
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    )''');
+    
+    // Create purchases table
+    await db.execute('''
+    CREATE TABLE purchases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      reference_number TEXT UNIQUE NOT NULL,
+      supplier_id INTEGER NOT NULL,
+      branch_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      purchase_date TEXT NOT NULL,
+      total_amount REAL NOT NULL,
+      notes TEXT,
+      status TEXT DEFAULT 'completed',
+      payment_status TEXT DEFAULT 'unpaid',
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
+      FOREIGN KEY (branch_id) REFERENCES branches(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )''');
+
+    // Create purchase_items table
+    await db.execute('''
+    CREATE TABLE purchase_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      purchase_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      quantity REAL NOT NULL,
+      unit_price REAL NOT NULL,
+      total_price REAL NOT NULL,
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (purchase_id) REFERENCES purchases(id),
       FOREIGN KEY (product_id) REFERENCES products(id)
     )''');
     
@@ -478,18 +534,56 @@ class DatabaseService {
       }
     }
     
-    // Tambahkan kondisi untuk versi 3
     if (oldVersion < 3) {
       // Periksa apakah kolom sync_status sudah ada di tabel products
       final List<Map<String, dynamic>> columns = await db.rawQuery("PRAGMA table_info(products)");
       final bool syncStatusExists = columns.any((column) => column['name'] == 'sync_status');
       
-      // Jika kolom belum ada, tambahkan
       if (!syncStatusExists) {
         logger.i('Menambahkan kolom sync_status ke tabel products sebagai bagian dari upgrade ke versi 3');
         await db.execute("ALTER TABLE products ADD COLUMN sync_status TEXT DEFAULT 'pending'");
         logger.i('Kolom sync_status berhasil ditambahkan ke tabel products');
       }
+    }
+    
+    // Tambahkan kondisi untuk versi 4
+    if (oldVersion < 4) {
+      // Create purchases table
+      await db.execute('''
+      CREATE TABLE purchases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reference_number TEXT UNIQUE NOT NULL,
+        supplier_id INTEGER NOT NULL,
+        branch_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        purchase_date TEXT NOT NULL,
+        total_amount REAL NOT NULL,
+        notes TEXT,
+        status TEXT DEFAULT 'completed',
+        payment_status TEXT DEFAULT 'unpaid',
+        created_at TEXT DEFAULT (datetime('now', 'localtime')),
+        updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
+        FOREIGN KEY (branch_id) REFERENCES branches(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )''');
+
+      // Create purchase_items table
+      await db.execute('''
+      CREATE TABLE purchase_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        purchase_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity REAL NOT NULL,
+        unit_price REAL NOT NULL,
+        total_price REAL NOT NULL,
+        created_at TEXT DEFAULT (datetime('now', 'localtime')),
+        updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+        FOREIGN KEY (purchase_id) REFERENCES purchases(id),
+        FOREIGN KEY (product_id) REFERENCES products(id)
+      )''');
+      
+      logger.i('Tabel purchases dan purchase_items berhasil dibuat');
     }
   }
   
@@ -876,5 +970,4 @@ class DatabaseService {
       orderBy: 'is_main_branch DESC, name ASC',
     );
   }
-
 }

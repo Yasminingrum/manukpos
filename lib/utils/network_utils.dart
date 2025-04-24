@@ -26,7 +26,7 @@ class NetworkUtils {
 
   /// Get base API URL from config or preferences
   static Future<String> getBaseUrl() async {
-    return 'https://api.manuk-pos.com/api/v1';
+    return 'https://documenter.getpostman.com/view/37267696/2sB2ca8L6X';
   }
 
   /// Add headers to request

@@ -2,16 +2,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:logger/logger.dart';
 import '../../models/product.dart';
 import '../../models/stock_opname.dart';
 import '../../services/database_service.dart';
 import '../../widgets/loading_overlay.dart';
 
+// Logger untuk pengganti print
+final logger = Logger();
+
 class StockOpnameScreen extends StatefulWidget {
   const StockOpnameScreen({super.key});
 
   @override
-  _StockOpnameScreenState createState() => _StockOpnameScreenState();
+  State<StockOpnameScreen> createState() => _StockOpnameScreenState();
 }
 
 class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProviderStateMixin {
@@ -70,21 +74,26 @@ class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProvid
         notes: map['notes'] ?? '',
       )).toList();
 
-      setState(() {
-        _branches = branches;
-        _selectedBranchId = branches.isNotEmpty ? branches[0]['id'] as int : null;
-        _ongoingOpnames = opnames;
-        _isInitializing = false;
-      });
+      if (mounted) {
+        setState(() {
+          _branches = branches;
+          _selectedBranchId = branches.isNotEmpty ? branches[0]['id'] as int : null;
+          _ongoingOpnames = opnames;
+          _isInitializing = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isInitializing = false;
-      });
-      _showErrorSnackBar('Error initializing: $e');
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+        _showErrorSnackBar('Error initializing: $e');
+      }
     }
   }
 
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -109,7 +118,6 @@ class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProvid
     });
 
     try {
-      // Create new opname in database - using insert instead of createStockOpname
       final userId = 1;
       final now = DateTime.now().toIso8601String();
       
@@ -126,77 +134,104 @@ class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProvid
 
       final opnameId = await _databaseService.insert('stock_opname', opnameData);
       
-      // Load products for this branch with their current inventory
-      // using query instead of getInventoryItemsByBranch
-      final inventoryItems = await _databaseService.query(
-        'inventory',
-        where: 'branch_id = ?',
-        whereArgs: [_selectedBranchId],
+      // Ubah pendekatan untuk mendapatkan produk:
+      // 1. Dapatkan semua produk aktif
+      final products = await _databaseService.query(
+        'products',
+        where: 'is_active = ?',
+        whereArgs: [1],
       );
       
-      // Join with products to get product details
-      final items = await Future.wait(inventoryItems.map((item) async {
-        final productId = item['product_id'];
-        final products = await _databaseService.query(
-          'products',
-          where: 'id = ?',
-          whereArgs: [productId],
+      if (products.isEmpty) {
+        if (mounted) {
+          _showErrorSnackBar('Tidak ada produk aktif di database');
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+      
+      // 2. Untuk setiap produk, cek inventori di cabang ini
+      final List<StockOpnameItem> opnameItems = [];
+      final List<Product> productsList = [];
+      
+      for (final product in products) {
+        final productId = product['id'] as int;
+        
+        // Cari inventori untuk produk ini di cabang yg dipilih
+        final inventoryItems = await _databaseService.query(
+          'inventory',
+          where: 'product_id = ? AND branch_id = ?',
+          whereArgs: [productId, _selectedBranchId],
           limit: 1,
         );
         
-        if (products.isEmpty) {
-          return null;
-        }
+        // Default quantity ke 0 jika tidak ada inventori
+        final double quantity = inventoryItems.isNotEmpty 
+            ? (inventoryItems.first['quantity'] as num?)?.toDouble() ?? 0.0
+            : 0.0;
         
-        final product = products.first;
-        
-        return StockOpnameItem(
+        // Buat stock opname item
+        opnameItems.add(StockOpnameItem(
           id: 0,
           stockOpnameId: opnameId,
           productId: productId,
-          productName: product['name'],
-          productSku: product['sku'],
-          systemStock: item['quantity'] ?? 0.0,
-          physicalStock: item['quantity'] ?? 0.0, // Default to system stock
+          productName: product['name'] as String,
+          productSku: product['sku'] as String,
+          systemStock: quantity,
+          physicalStock: quantity,
           difference: 0,
           notes: '',
+        ));
+        
+        // Tambahkan ke daftar produk
+        productsList.add(Product(
+          id: productId,
+          sku: product['sku'] as String,
+          barcode: product['barcode'] as String?,
+          name: product['name'] as String,
+          categoryId: (product['category_id'] as num?)?.toInt() ?? 0,
+          category: '',
+          buyingPrice: (product['buying_price'] as num?)?.toDouble() ?? 0.0,
+          sellingPrice: (product['selling_price'] as num?)?.toDouble() ?? 0.0,
+          createdAt: product['created_at'] as String? ?? now,
+          updatedAt: product['updated_at'] as String? ?? now,
+        ));
+      }
+      
+      if (mounted) {
+        setState(() {
+          _currentOpname = StockOpname(
+            id: opnameId,
+            branchId: _selectedBranchId!,
+            userId: userId,
+            referenceNumber: reference,
+            opnameDate: now,
+            status: 'draft',
+            notes: '',
+          );
+          _opnameItems = opnameItems;
+          _filteredProducts = productsList;
+          _isLoading = false;
+          _currentTabIndex = 1;
+        });
+      
+        // Beri tahu pengguna berapa produk yang ditemukan
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Berhasil memuat ${productsList.length} produk'),
+            backgroundColor: Colors.green,
+          ),
         );
-      }));
-      
-      final validItems = items.whereType<StockOpnameItem>().toList();
-      
-      final productsList = validItems.map((item) => Product(
-        id: item.productId,
-        sku: item.productSku,
-        name: item.productName,
-        categoryId: 0,
-        category: '',
-        buyingPrice: 0,
-        sellingPrice: 0,
-        createdAt: '',
-        updatedAt: '',
-      )).toList();
-      
-      setState(() {
-        _currentOpname = StockOpname(
-          id: opnameId,
-          branchId: _selectedBranchId!,
-          userId: userId,
-          referenceNumber: reference,
-          opnameDate: now,
-          status: 'draft',
-          notes: '',
-        );
-        _opnameItems = validItems;
-        _filteredProducts = productsList;
-        _isLoading = false;
-        _currentTabIndex = 1;
-      });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorSnackBar('Error creating stock opname: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showErrorSnackBar('Error creating stock opname: $e');
+      }
     }
   }
 
@@ -304,9 +339,9 @@ class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProvid
           productId: productId,
           productName: product['name'],
           productSku: product['sku'],
-          systemStock: item['system_stock'] ?? 0.0,
-          physicalStock: item['physical_stock'] ?? 0.0,
-          difference: item['difference'] ?? 0.0,
+          systemStock: (item['system_stock'] as num?)?.toDouble() ?? 0.0,
+          physicalStock: (item['physical_stock'] as num?)?.toDouble() ?? 0.0,
+          difference: (item['difference'] as num?)?.toDouble() ?? 0.0,
           notes: item['notes'] ?? '',
         );
       }));
@@ -317,6 +352,7 @@ class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProvid
       final products = validItems.map((item) => Product(
         id: item.productId,
         sku: item.productSku,
+        barcode: null, // We don't have barcode from this query
         name: item.productName,
         categoryId: 0, 
         category: '', 
@@ -326,81 +362,216 @@ class _StockOpnameScreenState extends State<StockOpnameScreen> with TickerProvid
         updatedAt: '',
       )).toList();
 
-      setState(() {
-        _currentOpname = opname;
-        _opnameItems = validItems;
-        _filteredProducts = products;
-        _selectedBranchId = opname.branchId;
-        _isLoading = false;
-        _currentTabIndex = 1; // Switch to Count tab
-      });
+      if (mounted) {
+        setState(() {
+          _currentOpname = opname;
+          _opnameItems = validItems;
+          _filteredProducts = products;
+          _selectedBranchId = opname.branchId;
+          _isLoading = false;
+          _currentTabIndex = 1; // Switch to Count tab
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorSnackBar('Error loading stock opname: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showErrorSnackBar('Error loading stock opname: $e');
+      }
     }
   }
 
-Future<void> _scanBarcode() async {
-  try {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: const Text('Scan Barcode'),
-          ),
-          body: MobileScanner(
-            onDetect: (capture) {
-              final List<Barcode> barcodes = capture.barcodes;
-              if (barcodes.isNotEmpty) {
-                final String? barcode = barcodes.first.rawValue;
-                if (barcode != null) {
-                  Navigator.of(context).pop();
-                  _processBarcodeResult(barcode);
+  Future<void> _scanBarcode() async {
+    try {
+      // Removed unused variable 'currentContext'
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Scan Barcode'),
+            ),
+            body: MobileScanner(
+              onDetect: (capture) {
+                final List<Barcode> barcodes = capture.barcodes;
+                if (barcodes.isNotEmpty) {
+                  final String? barcode = barcodes.first.rawValue;
+                  if (barcode != null) {
+                    Navigator.of(context).pop();
+                    if (mounted) {
+                      _processBarcodeResult(barcode);
+                    }
+                  }
                 }
-              }
-            },
+              },
+            ),
           ),
         ),
-      ),
-    );
-  } catch (e) {
-    // Remove kDebugMode reference
-    print('Error scanning barcode: $e');
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error scanning barcode'),
-          backgroundColor: Colors.red, // Replace AppTheme.errorColor with Colors.red
-        ),
       );
+    } catch (e) {
+      logger.e('Error scanning barcode: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error scanning barcode'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
-}
 
-void _processBarcodeResult(String barcode) {
-  // Search for product with matching SKU since we don't have a barcode field
-  final matchingItems = _opnameItems.where(
-    (item) => item.productSku == barcode
-  ).toList();
-  
-  if (matchingItems.isNotEmpty) {
-    // If found, show the count dialog for the first matching item
-    _showCountDialog(matchingItems.first);
-  } else {
-    // No matching product found
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Product with this barcode was not found'),
-          backgroundColor: Colors.red,
-        ),
-      );
+  Future<void> _processBarcodeResult(String barcode) async {
+    // Search for product with matching SKU or barcode
+    final matchingItems = _opnameItems.where(
+      (item) => item.productSku == barcode
+    ).toList();
+    
+    if (matchingItems.isNotEmpty) {
+      // If found by SKU, show the count dialog
+      _showCountDialog(matchingItems.first);
+    } else {
+      // Jika tidak ditemukan berdasarkan SKU, cari barcode di database
+      await _searchProductByBarcode(barcode);
     }
   }
-}
+
+  // Metode untuk mencari produk berdasarkan barcode
+  Future<void> _searchProductByBarcode(String barcode) async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      // Cari produk berdasarkan barcode atau SKU
+      final products = await _databaseService.query(
+        'products',
+        where: 'barcode = ? OR sku = ?',
+        whereArgs: [barcode, barcode],
+      );
+      
+      if (!mounted) return;
+      
+      if (products.isNotEmpty) {
+        final product = products.first;
+        final productId = product['id'] as int;
+        
+        // Cek apakah produk sudah ada di opname items
+        final existingItemIndex = _opnameItems.indexWhere(
+          (item) => item.productId == productId,
+        );
+        
+        if (existingItemIndex >= 0) {
+          // Produk sudah ada di daftar opname
+          _showCountDialog(_opnameItems[existingItemIndex]);
+        } else {
+          // Produk ditemukan di database tapi belum ada di opname items
+          // Buat item opname baru untuk produk ini
+          await _addProductToOpname(product);
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Produk dengan barcode/SKU ini tidak ditemukan di database'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saat mencari produk: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Metode untuk menambahkan produk baru ke opname
+  Future<void> _addProductToOpname(Map<String, dynamic> product) async {
+    if (_currentOpname == null) return;
+    
+    final productId = product['id'] as int;
+    
+    try {
+      // Cek inventori untuk produk ini di cabang yang dipilih
+      final inventoryItems = await _databaseService.query(
+        'inventory',
+        where: 'product_id = ? AND branch_id = ?',
+        whereArgs: [productId, _currentOpname!.branchId],
+        limit: 1,
+      );
+      
+      if (!mounted) return;
+      
+      // Default quantity ke 0 jika tidak ada inventori
+      final double systemStock = inventoryItems.isNotEmpty 
+          ? (inventoryItems.first['quantity'] as num?)?.toDouble() ?? 0.0
+          : 0.0;
+      
+      // Buat stock opname item baru
+      final newItem = StockOpnameItem(
+        id: 0,
+        stockOpnameId: _currentOpname!.id,
+        productId: productId,
+        productName: product['name'] as String,
+        productSku: product['sku'] as String,
+        systemStock: systemStock,
+        physicalStock: 0.0, // Default 0 untuk memaksa pengguna mengisi nilai
+        difference: -systemStock, // Default selisih negatif
+        notes: 'Produk ditambahkan saat scanning',
+      );
+      
+      // Tambahkan produk ke model
+      final newProduct = Product(
+        id: productId,
+        sku: product['sku'] as String,
+        barcode: product['barcode'] as String?,
+        name: product['name'] as String,
+        categoryId: (product['category_id'] as num?)?.toInt() ?? 0,
+        category: '',
+        buyingPrice: (product['buying_price'] as num?)?.toDouble() ?? 0.0,
+        sellingPrice: (product['selling_price'] as num?)?.toDouble() ?? 0.0,
+        createdAt: product['created_at'] as String? ?? DateTime.now().toIso8601String(),
+        updatedAt: product['updated_at'] as String? ?? DateTime.now().toIso8601String(),
+      );
+      
+      // Update state
+      setState(() {
+        _opnameItems.add(newItem);
+        _filteredProducts.add(newProduct);
+        _hasChanges = true;
+      });
+      
+      // Langsung tampilkan dialog untuk menghitung item ini
+      _showCountDialog(newItem);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Produk "${newProduct.name}" ditambahkan ke stock opname'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error menambahkan produk: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   Future<void> _showCountDialog(StockOpnameItem item) async {
     final TextEditingController controller = TextEditingController(
@@ -533,12 +704,12 @@ void _processBarcodeResult(String barcode) {
       // Check if any changes were made
       final hasDiscrepancies = _opnameItems.any((item) => item.difference != 0);
       
-      setState(() {
-        _hasChanges = false;
-        _isLoading = false;
-      });
-      
       if (mounted) {
+        setState(() {
+          _hasChanges = false;
+          _isLoading = false;
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(hasDiscrepancies 
@@ -549,10 +720,12 @@ void _processBarcodeResult(String barcode) {
         );
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorSnackBar('Error saving stock opname: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showErrorSnackBar('Error saving stock opname: $e');
+      }
     }
   }
 
@@ -565,8 +738,9 @@ void _processBarcodeResult(String barcode) {
     }
 
     // Ask for confirmation
+    final BuildContext currentContext = context;
     final bool? confirm = await showDialog<bool>(
-      context: context,
+      context: currentContext,
       builder: (context) => AlertDialog(
         title: const Text('Complete Stock Opname'),
         content: const Text(
@@ -586,7 +760,7 @@ void _processBarcodeResult(String barcode) {
       ),
     );
 
-    if (confirm != true) return;
+    if (confirm != true || !mounted) return;
 
     setState(() {
       _isLoading = true;
@@ -609,16 +783,44 @@ void _processBarcodeResult(String barcode) {
       for (var item in _opnameItems) {
         if (item.difference != 0) {
           // Update inventory quantity
-          await _databaseService.update(
+          final inventoryItems = await _databaseService.query(
             'inventory',
-            {
-              'quantity': item.physicalStock,
-              'last_counting_date': DateTime.now().toIso8601String(),
-              'updated_at': DateTime.now().toIso8601String(),
-            },
-            'product_id = ? AND branch_id = ?',
-            [item.productId, _currentOpname!.branchId],
+            where: 'product_id = ? AND branch_id = ?',
+            whereArgs: [item.productId, _currentOpname!.branchId],
+            limit: 1,
           );
+          
+          if (inventoryItems.isEmpty) {
+            // Create new inventory record if doesn't exist
+            await _databaseService.insert(
+              'inventory',
+              {
+                'product_id': item.productId,
+                'branch_id': _currentOpname!.branchId,
+                'quantity': item.physicalStock,
+                'reserved_quantity': 0.0,
+                'min_stock_level': 0.0,
+                'max_stock_level': 0.0,
+                'reorder_point': 0.0,
+                'last_stock_update': DateTime.now().toIso8601String(),
+                'last_counting_date': DateTime.now().toIso8601String(),
+                'created_at': DateTime.now().toIso8601String(),
+                'updated_at': DateTime.now().toIso8601String(),
+              },
+            );
+          } else {
+            // Update existing inventory record
+            await _databaseService.update(
+              'inventory',
+              {
+                'quantity': item.physicalStock,
+                'last_counting_date': DateTime.now().toIso8601String(),
+                'updated_at': DateTime.now().toIso8601String(),
+              },
+              'product_id = ? AND branch_id = ?',
+              [item.productId, _currentOpname!.branchId],
+            );
+          }
           
           // Add inventory transaction record
           await _databaseService.insert(
@@ -640,18 +842,18 @@ void _processBarcodeResult(String barcode) {
       }
       
       // Reset the screen
-      setState(() {
-        _currentOpname = null;
-        _opnameItems = [];
-        _filteredProducts = [];
-        _isLoading = false;
-        _currentTabIndex = 0; // Switch back to List tab
-      });
-      
-      // Refresh data
-      _initializeData();
-      
       if (mounted) {
+        setState(() {
+          _currentOpname = null;
+          _opnameItems = [];
+          _filteredProducts = [];
+          _isLoading = false;
+          _currentTabIndex = 0; // Switch back to List tab
+        });
+        
+        // Refresh data
+        _initializeData();
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Stock opname completed and inventory adjusted'),
@@ -660,18 +862,21 @@ void _processBarcodeResult(String barcode) {
         );
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorSnackBar('Error completing stock opname: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showErrorSnackBar('Error completing stock opname: $e');
+      }
     }
   }
 
   Future<void> _cancelOpname() async {
     if (_currentOpname == null) return;
 
+    final BuildContext currentContext = context;
     final bool? confirm = await showDialog<bool>(
-      context: context,
+      context: currentContext,
       builder: (context) => AlertDialog(
         title: const Text('Cancel Stock Opname'),
         content: const Text(
@@ -692,7 +897,7 @@ void _processBarcodeResult(String barcode) {
       ),
     );
 
-    if (confirm != true) return;
+    if (confirm != true || !mounted) return;
 
     setState(() {
       _isLoading = true;
@@ -714,27 +919,29 @@ void _processBarcodeResult(String barcode) {
       );
       
       // Reset the screen
-      setState(() {
-        _currentOpname = null;
-        _opnameItems = [];
-        _filteredProducts = [];
-        _isLoading = false;
-        _currentTabIndex = 0; // Switch back to List tab
-      });
-      
-      // Refresh data
-      _initializeData();
-      
       if (mounted) {
+        setState(() {
+          _currentOpname = null;
+          _opnameItems = [];
+          _filteredProducts = [];
+          _isLoading = false;
+          _currentTabIndex = 0; // Switch back to List tab
+        });
+        
+        // Refresh data
+        _initializeData();
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Stock opname cancelled')),
         );
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorSnackBar('Error cancelling stock opname: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showErrorSnackBar('Error cancelling stock opname: $e');
+      }
     }
   }
 
@@ -744,9 +951,10 @@ void _processBarcodeResult(String barcode) {
         _filteredProducts = _opnameItems.map((item) => Product(
           id: item.productId,
           sku: item.productSku,
+          barcode: null,
           name: item.productName,
           categoryId: 0,
-          category: '', // Add category parameter
+          category: '',
           buyingPrice: 0,
           sellingPrice: 0,
           createdAt: '',
@@ -765,9 +973,10 @@ void _processBarcodeResult(String barcode) {
           .map((item) => Product(
             id: item.productId,
             sku: item.productSku,
+            barcode: null,
             name: item.productName,
             categoryId: 0,
-            category: '', // Add category parameter
+            category: '',
             buyingPrice: 0,
             sellingPrice: 0,
             createdAt: '',
@@ -776,6 +985,7 @@ void _processBarcodeResult(String barcode) {
           .toList();
     });
   }
+
 
   // UI Builders
   Widget _buildOngoingTab() {
@@ -1006,80 +1216,98 @@ void _processBarcodeResult(String barcode) {
         
         // Products List
         Expanded(
-          child: ListView.builder(
-            itemCount: _filteredProducts.length,
-            itemBuilder: (context, index) {
-              final product = _filteredProducts[index];
-              final opnameItem = _opnameItems.firstWhere(
-                (item) => item.productId == product.id,
-                orElse: () => StockOpnameItem(
-                  id: 0,
-                  stockOpnameId: _currentOpname!.id,
-                  productId: product.id,
-                  productName: product.name,
-                  productSku: product.sku,
-                  systemStock: 0,
-                  physicalStock: 0,
-                  difference: 0,
-                  notes: '',
-                ),
-              );
-              
-              final isCounted = opnameItem.physicalStock != opnameItem.systemStock || 
-                             opnameItem.notes.isNotEmpty;
-              final hasDiscrepancy = opnameItem.difference != 0;
-              
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                color: hasDiscrepancy 
-                    ? Colors.red[50] 
-                    : (isCounted ? Colors.green[50] : null),
-                child: ListTile(
-                  title: Text(
-                    product.name,
-                    style: TextStyle(
-                      fontWeight: hasDiscrepancy ? FontWeight.bold : null,
-                    ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          child: _filteredProducts.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('SKU: ${product.sku}'),
-                      Row(
-                        children: [
-                          Text('System: ${opnameItem.systemStock}'),
-                          const SizedBox(width: 16),
-                          if (isCounted)
-                            Text(
-                              'Physical: ${opnameItem.physicalStock}',
-                              style: TextStyle(
-                                color: hasDiscrepancy ? Colors.red : Colors.green,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                        ],
-                      ),
-                      if (hasDiscrepancy)
+                      const Icon(Icons.search_off, size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      const Text('No products found.'),
+                      if (_searchQuery.isNotEmpty)
                         Text(
-                          'Difference: ${opnameItem.difference > 0 ? '+' : ''}${opnameItem.difference}',
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          'Try a different search term.',
+                          style: TextStyle(color: Colors.grey[600]),
                         ),
-                      if (opnameItem.notes.isNotEmpty)
-                        Text('Note: ${opnameItem.notes}'),
                     ],
                   ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () => _showCountDialog(opnameItem),
-                  ),
-                  onTap: () => _showCountDialog(opnameItem),
+                )
+              : ListView.builder(
+                  itemCount: _filteredProducts.length,
+                  itemBuilder: (context, index) {
+                    final product = _filteredProducts[index];
+                    final opnameItem = _opnameItems.firstWhere(
+                      (item) => item.productId == product.id,
+                      orElse: () => StockOpnameItem(
+                        id: 0,
+                        stockOpnameId: _currentOpname!.id,
+                        productId: product.id,
+                        productName: product.name,
+                        productSku: product.sku,
+                        systemStock: 0,
+                        physicalStock: 0,
+                        difference: 0,
+                        notes: '',
+                      ),
+                    );
+                    
+                    final isCounted = opnameItem.physicalStock != opnameItem.systemStock || 
+                                   opnameItem.notes.isNotEmpty;
+                    final hasDiscrepancy = opnameItem.difference != 0;
+                    
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                      color: hasDiscrepancy 
+                          ? Colors.red[50] 
+                          : (isCounted ? Colors.green[50] : null),
+                      child: ListTile(
+                        title: Text(
+                          product.name,
+                          style: TextStyle(
+                            fontWeight: hasDiscrepancy ? FontWeight.bold : null,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('SKU: ${product.sku}'),
+                            if (product.barcode != null && product.barcode!.isNotEmpty)
+                              Text('Barcode: ${product.barcode}'),
+                            Row(
+                              children: [
+                                Text('System: ${opnameItem.systemStock}'),
+                                const SizedBox(width: 16),
+                                if (isCounted)
+                                  Text(
+                                    'Physical: ${opnameItem.physicalStock}',
+                                    style: TextStyle(
+                                      color: hasDiscrepancy ? Colors.red : Colors.green,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (hasDiscrepancy)
+                              Text(
+                                'Difference: ${opnameItem.difference > 0 ? '+' : ''}${opnameItem.difference}',
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            if (opnameItem.notes.isNotEmpty)
+                              Text('Note: ${opnameItem.notes}'),
+                          ],
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () => _showCountDialog(opnameItem),
+                        ),
+                        onTap: () => _showCountDialog(opnameItem),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ],
     );

@@ -127,7 +127,7 @@ class AuthService extends ChangeNotifier {
       
       final user = User.fromMap(users.first);
 
-      if (user.passwordHash != password) {
+      if (user.password != password) {
         throw Exception('Invalid password');
       }
       
@@ -283,7 +283,7 @@ class AuthService extends ChangeNotifier {
         throw Exception('User not logged in');
       }
       
-      if (_currentUser!.passwordHash != currentPassword) {
+      if (_currentUser!.password != currentPassword) {
         throw Exception('Current password is incorrect');
       }
       
@@ -313,7 +313,7 @@ class AuthService extends ChangeNotifier {
       );
       
       // Update current user
-      _currentUser = _currentUser!.copyWith(passwordHash: newPassword);
+      _currentUser = _currentUser!.copyWith(password: newPassword);
       await sharedPreferences.setString(
         AppConstants.userDataKey,
         jsonEncode(_currentUser!.toMap())
@@ -349,4 +349,67 @@ class AuthService extends ChangeNotifier {
         return false;
     }
   }
+
+// Register user
+Future<User> register(String username, String password, String name, String email, String phone) async {
+  try {
+    // Check if username already exists
+    final existingUsers = await databaseService.query(
+      AppConstants.tableUsers,
+      where: 'username = ?',
+      whereArgs: [username],
+      limit: 1,
+    );
+    
+    if (existingUsers.isNotEmpty) {
+      throw Exception('Username already exists');
+    }
+    
+    // Check if email already exists (if provided)
+    if (email.isNotEmpty) {
+      final existingEmails = await databaseService.query(
+        AppConstants.tableUsers,
+        where: 'email = ?',
+        whereArgs: [email],
+        limit: 1,
+      );
+      
+      if (existingEmails.isNotEmpty) {
+        throw Exception('Email already in use');
+      }
+    }
+    
+    // Create user object
+    final newUser = User(
+      id: 0, // Will be auto-incremented
+      username: username,
+      password: password, // In production, use a proper hashing method
+      name: name,
+      email: email,
+      phone: phone,
+      role: 'user', // Default role
+      branchId: 1, // Default branch
+      isActive: 1,
+      createdAt: DateTime.now().toIso8601String(),  // Changed from created_at
+      updatedAt: DateTime.now().toIso8601String(),  // Changed from updated_at
+    );
+
+
+    // Insert into database
+    final userId = await databaseService.createUser(newUser);
+    
+    // Get the created user
+    final user = await databaseService.getUserById(userId);
+    if (user == null) {
+      throw Exception('Failed to create user');
+    }
+    
+    // Auto login the user
+    return await login(username, password);
+  } catch (e) {
+    logger.e('Registration error: $e');
+    rethrow;
+  }
+}
+
 }

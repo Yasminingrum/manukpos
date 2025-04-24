@@ -15,9 +15,6 @@ class User {
   final int? loginCount;
   final String? createdAt;
   final String? updatedAt;
-  
-  // Adding this for auth_service.dart compatibility
-  String get passwordHash => password ?? '';
 
   User({
     this.id,
@@ -80,7 +77,6 @@ class User {
     int? id,
     String? username,
     String? password,
-    String? passwordHash, // Added for auth_service.dart compatibility
     String? name,
     String? email,
     String? phone,
@@ -95,7 +91,7 @@ class User {
     return User(
       id: id ?? this.id,
       username: username ?? this.username,
-      password: passwordHash ?? password ?? this.password, // Handle passwordHash
+      password: password ?? password ?? this.password,
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,
