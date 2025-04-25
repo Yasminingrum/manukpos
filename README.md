@@ -207,7 +207,6 @@ Folder `widgets/` berisi komponen UI yang dapat digunakan kembali:
 - `custom_button.dart`: Tombol bergaya
 - `custom_drawer.dart`: Drawer navigasi kustom
 - `custom_text_field.dart`: Field input teks
-- `app_drawer.dart`: Drawer navigasi aplikasi
 - `confirmation_dialog.dart`: Dialog konfirmasi
 - `loading_indicator.dart`: Animasi loading
 - `loading_overlay.dart`: Overlay layar loading

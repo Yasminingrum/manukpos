@@ -460,8 +460,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.pushNamed(context, AppRouter.pos),
         icon: const Icon(Icons.point_of_sale),
-        label: const Text('Transaksi Baru'),
-        backgroundColor: AppTheme.accentColor,
+        label: const Text('POS'),
+        backgroundColor: const Color.fromARGB(255, 244, 240, 237),
       ),
     );
   }

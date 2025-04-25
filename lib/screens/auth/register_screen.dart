@@ -114,7 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       // App Logo
                       Image.asset(
-                        'assets/images/manuk_logo.png',
+                        'assets/images/logo.png',
                         height: 100,
                       ),
                       const SizedBox(height: 20),
