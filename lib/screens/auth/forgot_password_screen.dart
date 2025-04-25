@@ -113,7 +113,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     children: [
                       // App Logo
                       Image.asset(
-                        'assets/images/manuk_logo.png',
+                        'assets/images/logo.png',
                         height: 80,
                       ),
                       const SizedBox(height: 20),
