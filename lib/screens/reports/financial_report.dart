@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 import '../../models/transaction.dart';
 import '../../models/expense.dart';
 import '../../services/database_service.dart';
@@ -18,6 +19,10 @@ class FinancialReport extends StatefulWidget {
 class _FinancialReportState extends State<FinancialReport> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late DatabaseService _databaseService;
+  
+  // Stream controller untuk refresh
+  late StreamController<bool> _refreshController;
+  Timer? _periodicRefreshTimer;
   
   DateTimeRange _dateRange = DateTimeRange(
     start: DateTime.now().subtract(const Duration(days: 30)),
@@ -41,44 +46,130 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _databaseService = DatabaseService();
+    
+    // Inisialisasi stream controller
+    _refreshController = StreamController<bool>.broadcast();
+    
+    // Setup listener untuk refresh
+    _refreshController.stream.listen((_) {
+      if (mounted) {
+        _loadFinancialData();
+      }
+    });
+    
+    // Load data awal
     _loadFinancialData();
+    
+    // Setup timer untuk refresh periodik (setiap 30 detik)
+    _periodicRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _debugQueryLatestTransactions(); // Debug info
+        _refreshController.add(true);
+      }
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _refreshController.close();
+    _periodicRefreshTimer?.cancel();
     super.dispose();
   }
 
+  // Fungsi debug untuk query transaksi terbaru
+  Future<void> _debugQueryLatestTransactions() async {
+    try {
+      final db = await _databaseService.database;
+      final transactions = await db.query(
+        'transactions',
+        orderBy: 'created_at DESC',
+        limit: 5,
+      );
+      
+      if (kDebugMode) {
+        print('Debug - Latest 5 transactions:');
+        for (var tx in transactions) {
+          print('ID: ${tx['id']}, Date: ${tx['transaction_date']}, Amount: ${tx['grand_total']}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error in debug query: $e');
+      }
+    }
+  }
+
+  // Fungsi refresh manual
+  Future<void> _refreshData() async {
+    if (kDebugMode) {
+      print('Manual refresh triggered');
+    }
+    
+    setState(() {
+      _isLoading = true;
+    });
+    
+    await _loadFinancialData();
+  }
+
   Future<void> _loadFinancialData() async {
+    if (kDebugMode) {
+      print('Loading financial data for period: ${_dateRange.start} to ${_dateRange.end}');
+    }
+    
     setState(() {
       _isLoading = true;
     });
     
     try {
+      // Persiapkan query dengan format tanggal yang tepat
+      final startDate = _dateRange.start;
+      final endDate = _dateRange.end;
+      
+      if (kDebugMode) {
+        print('Query period (formatted): ${DateFormat('yyyy-MM-dd').format(startDate)} to ${DateFormat('yyyy-MM-dd').format(endDate)}');
+      }
+      
       // Get sales data for the selected period
       final salesData = await _getTransactionsByDateRange(
-        _dateRange.start, 
-        _dateRange.end,
+        startDate, 
+        endDate,
       );
+      
+      if (kDebugMode) {
+        print('Retrieved ${salesData.length} transactions');
+      }
       
       // Get expenses data for the selected period
       final expenses = await _getExpensesByDateRange(
-        _dateRange.start, 
-        _dateRange.end,
+        startDate, 
+        endDate,
       );
+      
+      if (kDebugMode) {
+        print('Retrieved ${expenses.length} expenses');
+      }
       
       // Get payment methods data
       final paymentMethods = await _getPaymentMethodsSummary(
-        _dateRange.start,
-        _dateRange.end,
+        startDate,
+        endDate,
       );
+      
+      if (kDebugMode) {
+        print('Retrieved ${paymentMethods.length} payment methods');
+      }
       
       // Get cash flow data for the selected period (daily)
       final cashFlowData = await _getCashFlowData(
-        _dateRange.start,
-        _dateRange.end,
+        startDate,
+        endDate,
       );
+      
+      if (kDebugMode) {
+        print('Retrieved ${cashFlowData.length} days of cash flow data');
+      }
       
       // Calculate financial summary
       double totalRevenue = 0;
@@ -114,6 +205,10 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
         });
       }
     } catch (e) {
+      if (kDebugMode) {
+        print('Error loading financial data: $e');
+      }
+      
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -131,15 +226,29 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
     DateTime endDate,
   ) async {
     try {
+      // Format tanggal dengan konsistensi (tanpa jam)
       final formattedStartDate = DateFormat('yyyy-MM-dd').format(startDate);
+      // Tambahkan 1 hari ke endDate dan gunakan waktu 00:00:00 untuk mencakup seluruh hari terakhir
       final formattedEndDate = DateFormat('yyyy-MM-dd').format(endDate.add(const Duration(days: 1)));
       
-      final transactions = await _databaseService.query(
-        'transactions',
-        where: 'transaction_date BETWEEN ? AND ? AND status != ?',
-        whereArgs: [formattedStartDate, formattedEndDate, 'cancelled'],
-        orderBy: 'transaction_date DESC',
-      );
+      if (kDebugMode) {
+        print('Getting transactions between $formattedStartDate and $formattedEndDate');
+      }
+      
+      final db = await _databaseService.database;
+      
+      // Gunakan raw query untuk memastikan kejelasan dan konsistensi
+      final transactions = await db.rawQuery('''
+        SELECT * FROM transactions 
+        WHERE date(transaction_date) >= date(?) 
+        AND date(transaction_date) <= date(?) 
+        AND status != ?
+        ORDER BY transaction_date DESC
+      ''', [formattedStartDate, formattedEndDate, 'cancelled']);
+      
+      if (kDebugMode) {
+        print('Raw transactions count: ${transactions.length}');
+      }
       
       // Convert maps to Transaction objects
       List<Transaction> result = [];
@@ -172,7 +281,8 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
   // Helper method to get transaction items
   Future<List<Map<String, dynamic>>> _getTransactionItems(int transactionId) async {
     try {
-      return await _databaseService.query(
+      final db = await _databaseService.database;
+      return await db.query(
         'transaction_items',
         where: 'transaction_id = ?',
         whereArgs: [transactionId],
@@ -191,15 +301,28 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
     DateTime endDate,
   ) async {
     try {
+      // Format tanggal dengan konsistensi (tanpa jam)
       final formattedStartDate = DateFormat('yyyy-MM-dd').format(startDate);
+      // Tambahkan 1 hari ke endDate untuk mencakup seluruh hari terakhir
       final formattedEndDate = DateFormat('yyyy-MM-dd').format(endDate.add(const Duration(days: 1)));
       
-      final expenses = await _databaseService.query(
-        'expenses',
-        where: 'expense_date BETWEEN ? AND ?',
-        whereArgs: [formattedStartDate, formattedEndDate],
-        orderBy: 'expense_date DESC',
-      );
+      if (kDebugMode) {
+        print('Getting expenses between $formattedStartDate and $formattedEndDate');
+      }
+      
+      final db = await _databaseService.database;
+      
+      // Gunakan raw query untuk memastikan kejelasan dan konsistensi
+      final expenses = await db.rawQuery('''
+        SELECT * FROM expenses 
+        WHERE date(expense_date) >= date(?) 
+        AND date(expense_date) <= date(?)
+        ORDER BY expense_date DESC
+      ''', [formattedStartDate, formattedEndDate]);
+      
+      if (kDebugMode) {
+        print('Raw expenses count: ${expenses.length}');
+      }
       
       // Convert maps to Expense objects
       List<Expense> result = [];
@@ -231,20 +354,33 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
     DateTime endDate,
   ) async {
     try {
+      // Format tanggal dengan konsistensi (tanpa jam)
       final formattedStartDate = DateFormat('yyyy-MM-dd').format(startDate);
+      // Tambahkan 1 hari ke endDate untuk mencakup seluruh hari terakhir
       final formattedEndDate = DateFormat('yyyy-MM-dd').format(endDate.add(const Duration(days: 1)));
       
+      if (kDebugMode) {
+        print('Getting payment methods between $formattedStartDate and $formattedEndDate');
+      }
+      
       final db = await _databaseService.database;
+      
+      // Gunakan raw query untuk memastikan kejelasan dan konsistensi
       final List<Map<String,dynamic>> result = await db.rawQuery('''
         SELECT 
           payment_method,
           COUNT(*) as count,
           SUM(amount) as amount
         FROM payments
-        WHERE payment_date BETWEEN ? AND ?
+        WHERE date(payment_date) >= date(?) 
+        AND date(payment_date) <= date(?)
         GROUP BY payment_method
         ORDER BY amount DESC
       ''', [formattedStartDate, formattedEndDate]);
+      
+      if (kDebugMode) {
+        print('Payment methods results: $result');
+      }
       
       return result;
     } catch (e) {
@@ -261,8 +397,14 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
     DateTime endDate,
   ) async {
     try {
+      // Format tanggal dengan konsistensi (tanpa jam)
       final formattedStartDate = DateFormat('yyyy-MM-dd').format(startDate);
+      // Tambahkan 1 hari ke endDate untuk mencakup seluruh hari terakhir
       final formattedEndDate = DateFormat('yyyy-MM-dd').format(endDate.add(const Duration(days: 1)));
+      
+      if (kDebugMode) {
+        print('Getting cash flow data between $formattedStartDate and $formattedEndDate');
+      }
       
       final db = await _databaseService.database;
       
@@ -273,7 +415,9 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
           SUM(grand_total) as income,
           COUNT(*) as transaction_count
         FROM transactions
-        WHERE transaction_date BETWEEN ? AND ? AND status != 'cancelled'
+        WHERE date(transaction_date) >= date(?) 
+        AND date(transaction_date) <= date(?)
+        AND status != 'cancelled'
         GROUP BY date(transaction_date)
         ORDER BY date(transaction_date)
       ''', [formattedStartDate, formattedEndDate]);
@@ -284,10 +428,16 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
           date(expense_date) as date,
           SUM(amount) as expense
         FROM expenses
-        WHERE expense_date BETWEEN ? AND ?
+        WHERE date(expense_date) >= date(?) 
+        AND date(expense_date) <= date(?)
         GROUP BY date(expense_date)
         ORDER BY date(expense_date)
       ''', [formattedStartDate, formattedEndDate]);
+      
+      if (kDebugMode) {
+        print('Income data days: ${incomeData.length}');
+        print('Expense data days: ${expenseData.length}');
+      }
       
       // Combine the data
       final Map<String, Map<String, dynamic>> dailyData = {};
@@ -371,6 +521,12 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
       appBar: AppBar(
         title: const Text('Laporan Keuangan'),
         actions: [
+          // Tombol refresh manual
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshData,
+            tooltip: 'Refresh Data',
+          ),
           ExportButton(
             data: _generateExportData(),
             fileNamePrefix: 'laporan_keuangan',
@@ -388,28 +544,31 @@ class _FinancialReportState extends State<FinancialReport> with SingleTickerProv
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: DateRangePicker(
-                    startDate: _dateRange.start,
-                    endDate: _dateRange.end,
-                    onDateRangeChanged: _onDateRangeChanged,
+          : RefreshIndicator(
+              onRefresh: _refreshData,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: DateRangePicker(
+                      startDate: _dateRange.start,
+                      endDate: _dateRange.end,
+                      onDateRangeChanged: _onDateRangeChanged,
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildSummaryTab(),
-                      _buildCashFlowTab(),
-                      _buildExpensesTab(),
-                      _buildPaymentMethodsTab(),
-                    ],
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildSummaryTab(),
+                        _buildCashFlowTab(),
+                        _buildExpensesTab(),
+                        _buildPaymentMethodsTab(),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
     );
   }

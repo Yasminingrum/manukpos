@@ -23,7 +23,7 @@ class ReportSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withAlpha(26), // 0.1 * 255 ≈ 26
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -39,7 +39,7 @@ class ReportSummaryCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: color.withOpacity(0.1),
+                    backgroundColor: color.withAlpha(26), // 0.1 * 255 ≈ 26
                     child: Icon(
                       icon,
                       size: 22,
@@ -122,7 +122,7 @@ class ComparativeSummaryCard extends StatelessWidget {
 
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withAlpha(26), // 0.1 * 255 ≈ 26
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -138,7 +138,7 @@ class ComparativeSummaryCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: trendColor.withOpacity(0.1),
+                    backgroundColor: trendColor.withAlpha(26), // 0.1 * 255 ≈ 26
                     child: Icon(
                       icon,
                       size: 22,

@@ -59,6 +59,9 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       // Store context in a local variable to avoid BuildContext issues
       final currentContext = context;
       
+      // Check if still mounted before continuing
+      if (!mounted) return;
+      
       // Use the stored context for Provider operations
       final productService = Provider.of<ProductService>(currentContext, listen: false);
       final inventoryService = Provider.of<InventoryService>(currentContext, listen: false);
@@ -70,11 +73,17 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
         isActive: _filterBy == 'inactive' ? false : null,
       );
       
+      // Check if still mounted after async operation
+      if (!mounted) return;
+      
       // Load inventory data
       final inventoryItems = await inventoryService.getInventoryItems(
         lowStockOnly: _filterBy == 'low_stock' ? true : null,
         search: _searchQuery.isNotEmpty ? _searchQuery : null,
       );
+      
+      // Check if still mounted after async operation
+      if (!mounted) return;
       
       // Load inventory movements from inventory transactions
       final dbService = DatabaseService();
@@ -97,6 +106,9 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
         movementsQuery, 
         [startDate.toIso8601String(), endDate.toIso8601String()]
       );
+      
+      // Check if still mounted after async operation
+      if (!mounted) return;
       
       final movements = movementsResult.map((map) {
         return InventoryMovement(
@@ -124,6 +136,9 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       
       // Load inventory statistics/summary
       final summary = await inventoryService.getInventoryStatistics();
+      
+      // Check if still mounted after async operation
+      if (!mounted) return;
       
       // Process data for charts
       final categoryData = _processCategoryData(products, inventoryItems);
@@ -223,10 +238,12 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
   }
 
   Future<void> _exportToExcel() async {
-    // Capture BuildContext before async gap
-    final currentContext = context;
-    
     try {
+      // Show loading indicator before any async operations
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Generating Excel file...')),
+      );
       
       // Prepare headers and data
       final headers = ['SKU', 'Product Name', 'Category', 'Stock Qty', 'Min Stock', 'Value', 'Status'];
@@ -273,28 +290,35 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       final fileName = 'Inventory_Report_${DateFormat('yyyyMMdd').format(DateTime.now())}';
       final file = await ExportUtils.exportToExcel(data, headers, fileName);
       
+      // Check if still mounted before proceeding
+      if (!mounted) return;
+      
       // Share the file
       await ExportUtils.shareFile(file, subject: 'Inventory Report');
       
-      if (mounted) {
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          const SnackBar(content: Text('Inventory report exported successfully')),
-        );
-      }
+      // Check if still mounted before showing the success message
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Inventory report exported successfully')),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to export report: $e')),
-        );
-      }
+      // Check if still mounted before showing error
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to export report: $e')),
+      );
     }
   }
 
   Future<void> _exportToPDF() async {
-    // Capture BuildContext before async gap
-    final currentContext = context;
-    
     try {
+      // Show loading indicator before any async operations
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Generating PDF file...')),
+      );
       
       // Prepare headers and data
       final headers = ['SKU', 'Product', 'Category', 'Qty', 'Min Stock', 'Value', 'Status'];
@@ -344,20 +368,25 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
       
       final file = await ExportUtils.exportToPDF(data, headers, fileName, title: title, subtitle: subtitle);
       
+      // Check if still mounted before proceeding
+      if (!mounted) return;
+      
       // Share the file
       await ExportUtils.shareFile(file, subject: 'Inventory Report');
       
-      if (mounted) {
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          const SnackBar(content: Text('Inventory report exported successfully')),
-        );
-      }
+      // Check if still mounted before showing the success message
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Inventory report exported successfully')),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to export report: $e')),
-        );
-      }
+      // Check if still mounted before showing error
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to export report: $e')),
+      );
     }
   }
 
@@ -434,7 +463,12 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> with Sing
                 if (_filterBy != 'all' || _selectedCategoryId != null || _searchQuery.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                    color: primaryColor.withOpacity(0.1),
+                    color: Color.fromRGBO(
+                      primaryColor.r.toInt(),
+                      primaryColor.g.toInt(),
+                      primaryColor.b.toInt(),
+                      0.1,
+                    ),
                     child: Row(
                       children: [
                         const Icon(Icons.filter_list, size: 16),

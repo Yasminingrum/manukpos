@@ -26,9 +26,12 @@ class ReportsModule {
         create: (_) => TransactionService(),
       ),
       Provider<InventoryService>(
-        create: (_) => InventoryService(),
-      ),
-      Provider<ApiService>(
+      create: (context) => InventoryService(
+        databaseService: Provider.of<DatabaseService>(context, listen: false),
+        apiService: Provider.of<ApiService>(context, listen: false),
+            ),
+          ),
+          Provider<ApiService>(
         create: (_) => ApiService(baseUrl: AppConstants.apiBaseUrl),
       ),
       // Dependent services - created as separate Provider instances

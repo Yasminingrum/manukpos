@@ -6,6 +6,7 @@ import '../../models/product.dart';
 // import '../../models/inventory_movement.dart';
 import '../../services/database_service.dart';
 import '../../services/inventory_service.dart';
+import '../../services/api_service.dart'; // Import the ApiService class
 // import '../../utils/formatters.dart';
 import '../../utils/validation_utils.dart';
 import '../../widgets/custom_app_bar.dart';
@@ -24,7 +25,10 @@ class _PurchasingScreenState extends State<PurchasingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final DatabaseService _databaseService = DatabaseService();
-  final InventoryService _inventoryService = InventoryService();
+  final InventoryService _inventoryService = InventoryService(
+    databaseService: DatabaseService(),
+    apiService: ApiService(baseUrl: 'https://documenter.getpostman.com/view/37267696/2sB2ca8L6X'),
+  );
   final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
   
   bool _isLoading = false;

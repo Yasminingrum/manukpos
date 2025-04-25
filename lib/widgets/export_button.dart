@@ -27,6 +27,9 @@ class ExportButton<T> extends StatelessWidget {
           await onExport!();
         }
         
+        // Store context.mounted in a local variable before async operations
+        if (!context.mounted) return;
+        
         if (value == 'pdf') {
           await _exportToPdf(context);
         } else if (value == 'csv') {
@@ -72,62 +75,59 @@ class ExportButton<T> extends StatelessWidget {
 
   Future<void> _exportToPdf(BuildContext context) async {
     try {
-      await _checkPermission();
+      // Show loading indicator before async operation
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Generating PDF file...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
       
-      // Show loading indicator
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Generating PDF file...'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
+      await _checkPermission();
       
       // Generate file name with date
       final now = DateTime.now();
       final fileName = '${fileNamePrefix}_${DateFormat('yyyyMMdd_HHmmss').format(now)}.pdf';
       
       // PDF generation would go here
-      // For now, just show a success message
+      // Wait for a short period to simulate processing
+      await Future.delayed(const Duration(seconds: 2));
       
-      Future.delayed(const Duration(seconds: 2), () {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('PDF file exported: $fileName'),
-              action: SnackBarAction(
-                label: 'Share',
-                onPressed: () {
-                  // Share functionality would go here
-                },
-              ),
-            ),
-          );
-        }
-      });
+      // Check if the context is still valid after the async operation
+      if (!context.mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('PDF file exported: $fileName'),
+          action: SnackBarAction(
+            label: 'Share',
+            onPressed: () {
+              // Share functionality would go here
+            },
+          ),
+        ),
+      );
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error exporting to PDF: $e')),
-        );
-      }
+      // Check if context is still valid
+      if (!context.mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error exporting to PDF: $e')),
+      );
     }
   }
 
   Future<void> _exportToCsv(BuildContext context) async {
     try {
-      await _checkPermission();
+      // Show loading indicator before async operation
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Generating CSV file...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
       
-      // Show loading indicator
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Generating CSV file...'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
+      await _checkPermission();
       
       // Generate file name with date
       final now = DateTime.now();
@@ -147,20 +147,25 @@ class ExportButton<T> extends StatelessWidget {
       final File file = File(filePath);
       await file.writeAsString(csv);
       
+      // Check if context is still valid after async operations
+      if (!context.mounted) return;
+      
       // Share the file
-      if (context.mounted) {
-        await Share.shareXFiles([XFile(filePath)], text: 'Exported CSV file');
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('CSV file exported: $fileName')),
-        );
-      }
+      await Share.shareXFiles([XFile(filePath)], text: 'Exported CSV file');
+      
+      // Check again after another async operation
+      if (!context.mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('CSV file exported: $fileName')),
+      );
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error exporting to CSV: $e')),
-        );
-      }
+      // Check if context is still valid
+      if (!context.mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error exporting to CSV: $e')),
+      );
     }
   }
 
@@ -185,46 +190,45 @@ class ExportButton<T> extends StatelessWidget {
 
   Future<void> _exportToExcel(BuildContext context) async {
     try {
-      await _checkPermission();
+      // Show loading indicator before async operation
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Generating Excel file...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
       
-      // Show loading indicator
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Generating Excel file...'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
+      await _checkPermission();
       
       // Generate file name with date
       final now = DateTime.now();
       final fileName = '${fileNamePrefix}_${DateFormat('yyyyMMdd_HHmmss').format(now)}.xlsx';
       
       // Excel generation would go here
-      // For now, just show a success message
+      // Wait for a short period to simulate processing
+      await Future.delayed(const Duration(seconds: 2));
       
-      Future.delayed(const Duration(seconds: 2), () {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Excel file exported: $fileName'),
-              action: SnackBarAction(
-                label: 'Share',
-                onPressed: () {
-                  // Share functionality would go here
-                },
-              ),
-            ),
-          );
-        }
-      });
+      // Check if the context is still valid after the async operation
+      if (!context.mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Excel file exported: $fileName'),
+          action: SnackBarAction(
+            label: 'Share',
+            onPressed: () {
+              // Share functionality would go here
+            },
+          ),
+        ),
+      );
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error exporting to Excel: $e')),
-        );
-      }
+      // Check if context is still valid
+      if (!context.mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error exporting to Excel: $e')),
+      );
     }
   }
 
