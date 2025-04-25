@@ -11,7 +11,7 @@ class AppConstants {
   
   // Database Constants
   static const String dbName = 'manuk_pos.db';
-  static const int dbVersion = 1;
+  static const int dbVersion = 4;
   static const bool enableForeignKeys = true;
   static const String dbBackupDir = 'backup';
 
