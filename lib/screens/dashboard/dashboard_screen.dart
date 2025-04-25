@@ -461,8 +461,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onPressed: () => Navigator.pushNamed(context, AppRouter.pos),
         icon: const Icon(Icons.point_of_sale),
         label: const Text('POS'),
-        backgroundColor: const Color.fromARGB(255, 244, 240, 237),
-      ),
+        backgroundColor: const Color.fromARGB(255, 218, 100, 10)   ),
     );
   }
   
